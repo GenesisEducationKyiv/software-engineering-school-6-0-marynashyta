@@ -23,8 +23,9 @@ ARG MPM_RESET=v4
 # --no-install-recommends keeps the layer lean.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libzip-dev curl \
-    && apt-get install -y --no-install-recommends --only-upgrade openssl libssl3 \
     && docker-php-ext-install pdo_mysql zip \
+    && apt-get purge -y linux-libc-dev \
+    && apt-get autoremove -y \
     && find /etc/apache2/mods-enabled/ -name 'mpm_*.load' -delete \
     && find /etc/apache2/mods-enabled/ -name 'mpm_*.conf' -delete \
     && ln -sf /etc/apache2/mods-available/mpm_prefork.load /etc/apache2/mods-enabled/mpm_prefork.load \

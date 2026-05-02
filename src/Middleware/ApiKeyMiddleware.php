@@ -13,7 +13,9 @@ use Slim\Psr7\Response;
 
 final class ApiKeyMiddleware implements MiddlewareInterface
 {
-    public function __construct(private readonly string $apiKey) {}
+    public function __construct(private readonly string $apiKey)
+    {
+    }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {

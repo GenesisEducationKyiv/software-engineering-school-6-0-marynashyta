@@ -9,7 +9,9 @@ use RuntimeException;
 
 class Migrator
 {
-    public function __construct(private PDO $db) {}
+    public function __construct(private PDO $db)
+    {
+    }
 
     public function run(): void
     {

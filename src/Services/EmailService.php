@@ -14,14 +14,13 @@ final class EmailService implements EmailServiceInterface
 
     public function __construct(
         private string $host,
-        private int    $port,
+        private int $port,
         private string $username,
         private string $password,
         private string $fromAddress,
         private string $fromName,
-        string         $appUrl
-    )
-    {
+        string $appUrl
+    ) {
         $this->appUrl = rtrim($appUrl, '/');
     }
 
@@ -34,8 +33,7 @@ final class EmailService implements EmailServiceInterface
         string $repo,
         string $confirmToken,
         string $unsubscribeToken
-    ): void
-    {
+    ): void {
         $confirmUrl = "{$this->appUrl}/api/confirm/{$confirmToken}";
         $unsubscribeUrl = "{$this->appUrl}/api/unsubscribe/{$unsubscribeToken}";
 
@@ -55,8 +53,7 @@ final class EmailService implements EmailServiceInterface
         string $repo,
         string $tag,
         string $unsubscribeToken
-    ): void
-    {
+    ): void {
         $releaseUrl = "https://github.com/{$repo}/releases/tag/{$tag}";
         $unsubscribeUrl = "{$this->appUrl}/api/unsubscribe/{$unsubscribeToken}";
 

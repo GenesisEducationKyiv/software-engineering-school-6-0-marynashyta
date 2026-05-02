@@ -84,10 +84,10 @@ $app->add(new CorsMiddleware());
 // ── Routes ────────────────────────────────────────────────────────────────────
 
 $app->get('/', fn($req, $res) => $res->withHeader('Location', '/subscribe.html')->withStatus(302));
-$app->post('/api/subscribe',          [$subscriptionController, 'subscribe']);
-$app->get('/api/confirm/{token}',     [$subscriptionController, 'confirm']);
+$app->post('/api/subscribe', [$subscriptionController, 'subscribe']);
+$app->get('/api/confirm/{token}', [$subscriptionController, 'confirm']);
 $app->get('/api/unsubscribe/{token}', [$subscriptionController, 'unsubscribe']);
-$app->get('/api/subscriptions',       [$subscriptionController, 'getSubscriptions']);
-$app->get('/metrics',                 [$metricsController,      'metrics']);
+$app->get('/api/subscriptions', [$subscriptionController, 'getSubscriptions']);
+$app->get('/metrics', [$metricsController,      'metrics']);
 
 $app->run();

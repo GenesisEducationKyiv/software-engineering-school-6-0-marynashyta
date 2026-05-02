@@ -10,7 +10,9 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 
 final class MetricsController
 {
-    public function __construct(private MetricsCollector $metrics) {}
+    public function __construct(private MetricsCollector $metrics)
+    {
+    }
 
     public function metrics(Request $req, Response $res): Response
     {

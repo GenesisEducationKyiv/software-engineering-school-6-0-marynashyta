@@ -11,7 +11,9 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 
 final class SubscriptionController
 {
-    public function __construct(private SubscriptionService $service) {}
+    public function __construct(private SubscriptionService $service)
+    {
+    }
 
     /**
      * POST /api/subscribe

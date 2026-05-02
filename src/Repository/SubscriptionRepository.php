@@ -26,8 +26,7 @@ final class SubscriptionRepository implements SubscriptionRepositoryInterface
         string $repo,
         string $confirmToken,
         string $unsubscribeToken,
-    ): void
-    {
+    ): void {
         $this->db->prepare(
             'INSERT INTO subscriptions (email, repo, confirmed, confirm_token, unsubscribe_token)
              VALUES (?, ?, 0, ?, ?)'

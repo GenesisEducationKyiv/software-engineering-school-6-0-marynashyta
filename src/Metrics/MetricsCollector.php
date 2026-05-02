@@ -17,9 +17,8 @@ final class MetricsCollector
 
     public function __construct(
         private RedisCache $cache,
-        private ?PDO       $db = null
-    )
-    {
+        private ?PDO $db = null
+    ) {
     }
 
     public function recordHttpRequest(string $method, string $route, int $status): void

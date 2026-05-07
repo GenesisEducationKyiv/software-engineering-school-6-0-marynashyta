@@ -83,7 +83,9 @@ while (true) {
                 $grouped[$repo][] = $sub;
             }
 
-            logMessage('INFO', 'Checking ' . count($grouped) . ' unique repo(s) for ' . count($subscriptions) . ' subscription(s).');
+            $repoCount = count($grouped);
+            $subCount = count($subscriptions);
+            logMessage('INFO', "Checking {$repoCount} unique repo(s) for {$subCount} subscription(s).");
 
             foreach ($grouped as $repo => $repoSubscriptions) {
                 logMessage('INFO', "Checking latest release for: {$repo}");
@@ -109,7 +111,9 @@ while (true) {
 
                 foreach ($repoSubscriptions as $subscription) {
                     $lastSeenTag = is_string($subscription['last_seen_tag']) ? $subscription['last_seen_tag'] : null;
-                    $unsubscribeToken = is_string($subscription['unsubscribe_token']) ? $subscription['unsubscribe_token'] : '';
+                    $unsubscribeToken = is_string($subscription['unsubscribe_token'])
+                        ? $subscription['unsubscribe_token']
+                        : '';
                     $email = is_string($subscription['email']) ? $subscription['email'] : '';
                     $id = is_numeric($subscription['id']) ? (int)$subscription['id'] : 0;
 
@@ -117,7 +121,8 @@ while (true) {
                         continue;
                     }
 
-                    logMessage('INFO', "New release for {$email} on {$repo}: {$latestTag} (was: " . ($lastSeenTag ?? 'none') . ')');
+                    $prev = $lastSeenTag ?? 'none';
+                    logMessage('INFO', "New release for {$email} on {$repo}: {$latestTag} (was: {$prev})");
 
                     try {
                         $emailService->sendReleaseNotification($email, $repo, $latestTag, $unsubscribeToken);

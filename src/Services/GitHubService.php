@@ -25,7 +25,8 @@ final class GitHubService implements GitHubServiceInterface
         private readonly ?string $token = null,
         private readonly ?RedisCache $cache = null,
         private readonly ?MetricsCollector $metrics = null,
-    ) {}
+    ) {
+    }
 
     /**
      * @throws InvalidRepositoryFormatException if format is invalid

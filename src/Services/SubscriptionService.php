@@ -18,7 +18,8 @@ final class SubscriptionService
         private readonly SubscriptionRepositoryInterface $repository,
         private readonly GitHubServiceInterface $github,
         private readonly EmailServiceInterface $email,
-    ) {}
+    ) {
+    }
 
     /**
      * Subscribe an email address to release notifications for a GitHub repository.

@@ -22,6 +22,7 @@ ARG MPM_RESET=v4
 # Install only the extensions the application actually needs.
 # --no-install-recommends keeps the layer lean.
 RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends libzip-dev curl \
     && docker-php-ext-install pdo_mysql zip \
     && apt-get purge -y linux-libc-dev \

@@ -16,8 +16,8 @@ final class MetricsCollector
     private const KEY_SCANNER = 'rna:scanner_cycles';
 
     public function __construct(
-        private RedisCache $cache,
-        private ?PDO $db = null
+        private readonly RedisCache $cache,
+        private readonly ?PDO $db = null
     ) {
     }
 

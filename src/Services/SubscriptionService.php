@@ -12,23 +12,22 @@ use App\Exceptions\TokenNotFoundException;
 use App\Exceptions\ValidationException;
 use App\Repository\SubscriptionRepositoryInterface;
 
-final class SubscriptionService
+final class SubscriptionService implements SubscriptionServiceInterface
 {
     public function __construct(
         private readonly SubscriptionRepositoryInterface $repository,
         private readonly GitHubServiceInterface $github,
-        private readonly EmailServiceInterface $email,
+        private readonly ConfirmationMailerInterface $mailer,
+        private readonly TokenGenerator $tokenGenerator,
     ) {
     }
 
     /**
-     * Subscribe an email address to release notifications for a GitHub repository.
-     *
-     * @throws ValidationException              if email is invalid
-     * @throws InvalidRepositoryFormatException if repo format is invalid
-     * @throws RepositoryNotFoundException      if repo doesn't exist on GitHub
-     * @throws RateLimitException               if GitHub rate limit is hit
-     * @throws AlreadySubscribedException       if already subscribed
+     * @throws ValidationException
+     * @throws InvalidRepositoryFormatException
+     * @throws RepositoryNotFoundException
+     * @throws RateLimitException
+     * @throws AlreadySubscribedException
      */
     public function subscribe(string $email, string $repo): void
     {
@@ -40,18 +39,17 @@ final class SubscriptionService
             throw new AlreadySubscribedException($email, $repo);
         }
 
-        $confirmToken     = bin2hex(random_bytes(32));
-        $unsubscribeToken = bin2hex(random_bytes(32));
+        $confirmToken     = $this->tokenGenerator->generate();
+        $unsubscribeToken = $this->tokenGenerator->generate();
 
         $this->repository->create($email, $repo, $confirmToken, $unsubscribeToken);
-        $this->email->sendConfirmation($email, $repo, $confirmToken, $unsubscribeToken);
+        $this->mailer->sendConfirmation($email, $repo, $confirmToken, $unsubscribeToken);
     }
 
     /**
-     * Confirm a pending subscription using the confirmation token.
      * Idempotent — confirming an already-confirmed subscription is a no-op.
      *
-     * @throws TokenNotFoundException if token is not found
+     * @throws TokenNotFoundException
      */
     public function confirm(string $token): void
     {
@@ -73,9 +71,7 @@ final class SubscriptionService
     }
 
     /**
-     * Permanently delete a subscription using the unsubscribe token.
-     *
-     * @throws TokenNotFoundException if token is not found
+     * @throws TokenNotFoundException
      */
     public function unsubscribe(string $token): void
     {
@@ -89,9 +85,7 @@ final class SubscriptionService
     }
 
     /**
-     * Return all confirmed subscriptions for an email address.
-     *
-     * @throws ValidationException if email is invalid
+     * @throws ValidationException
      * @return list<array{email: string, repo: string, confirmed: bool, last_seen_tag: string|null}>
      */
     public function getSubscriptions(string $email): array
@@ -101,7 +95,7 @@ final class SubscriptionService
     }
 
     /**
-     * @throws ValidationException if the address does not pass RFC validation
+     * @throws ValidationException
      */
     private function assertValidEmail(string $email): void
     {

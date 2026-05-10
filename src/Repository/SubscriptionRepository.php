@@ -112,4 +112,40 @@ final class SubscriptionRepository implements SubscriptionRepositoryInterface
             $rows
         );
     }
+
+    /**
+     * @return list<array{id: int, email: string, repo: string, last_seen_tag: string|null, unsubscribe_token: string}>
+     */
+    public function findAllConfirmed(): array
+    {
+        $stmt = $this->db->query(
+            'SELECT id, email, repo, last_seen_tag, unsubscribe_token
+             FROM subscriptions
+             WHERE confirmed = 1'
+        );
+
+        if ($stmt === false) {
+            return [];
+        }
+
+        /** @var list<array<string, mixed>> $rows */
+        $rows = $stmt->fetchAll();
+
+        return array_map(
+            fn(array $row): array => [
+                'id'              => is_numeric($row['id']) ? (int) $row['id'] : 0,
+                'email'           => is_string($row['email']) ? $row['email'] : '',
+                'repo'            => is_string($row['repo']) ? $row['repo'] : '',
+                'last_seen_tag'   => is_string($row['last_seen_tag']) ? $row['last_seen_tag'] : null,
+                'unsubscribe_token' => is_string($row['unsubscribe_token']) ? $row['unsubscribe_token'] : '',
+            ],
+            $rows
+        );
+    }
+
+    public function updateLastSeenTag(int $id, string $tag): void
+    {
+        $this->db->prepare('UPDATE subscriptions SET last_seen_tag = ? WHERE id = ?')
+            ->execute([$tag, $id]);
+    }
 }

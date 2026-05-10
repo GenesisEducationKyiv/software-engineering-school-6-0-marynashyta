@@ -43,4 +43,13 @@ interface SubscriptionRepositoryInterface
      * @return list<array{email: string, repo: string, confirmed: bool, last_seen_tag: string|null}>
      */
     public function findConfirmedByEmail(string $email): array;
+
+    /**
+     * Return all confirmed subscriptions across all users (used by the scanner).
+     *
+     * @return list<array{id: int, email: string, repo: string, last_seen_tag: string|null, unsubscribe_token: string}>
+     */
+    public function findAllConfirmed(): array;
+
+    public function updateLastSeenTag(int $id, string $tag): void;
 }

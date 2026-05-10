@@ -8,9 +8,10 @@ use App\Exceptions\AlreadySubscribedException;
 use App\Exceptions\TokenNotFoundException;
 use App\Exceptions\ValidationException;
 use App\Repository\SubscriptionRepositoryInterface;
-use App\Services\EmailServiceInterface;
+use App\Services\ConfirmationMailerInterface;
 use App\Services\GitHubServiceInterface;
 use App\Services\SubscriptionService;
+use App\Services\TokenGenerator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -20,7 +21,7 @@ final class SubscriptionServiceTest extends TestCase
 {
     private SubscriptionRepositoryInterface&MockObject $repository;
     private GitHubServiceInterface&MockObject $github;
-    private EmailServiceInterface&MockObject $email;
+    private ConfirmationMailerInterface&MockObject $mailer;
     private SubscriptionService $service;
 
     protected function setUp(): void
@@ -28,9 +29,14 @@ final class SubscriptionServiceTest extends TestCase
         parent::setUp();
 
         $this->repository = $this->createMock(SubscriptionRepositoryInterface::class);
-        $this->github = $this->createMock(GitHubServiceInterface::class);
-        $this->email = $this->createMock(EmailServiceInterface::class);
-        $this->service = new SubscriptionService($this->repository, $this->github, $this->email);
+        $this->github     = $this->createMock(GitHubServiceInterface::class);
+        $this->mailer     = $this->createMock(ConfirmationMailerInterface::class);
+        $this->service    = new SubscriptionService(
+            $this->repository,
+            $this->github,
+            $this->mailer,
+            new TokenGenerator(),
+        );
     }
 
     #[Test]
@@ -51,7 +57,7 @@ final class SubscriptionServiceTest extends TestCase
                 $this->matchesRegularExpression('/^[0-9a-f]{64}$/')
             );
 
-        $this->email->expects($this->once())
+        $this->mailer->expects($this->once())
             ->method('sendConfirmation')
             ->with(
                 'user@example.com',
@@ -72,7 +78,7 @@ final class SubscriptionServiceTest extends TestCase
 
         $this->github->expects($this->never())->method('validateRepository');
         $this->repository->expects($this->never())->method('create');
-        $this->email->expects($this->never())->method('sendConfirmation');
+        $this->mailer->expects($this->never())->method('sendConfirmation');
 
         $this->service->subscribe($email, 'owner/repo');
     }
@@ -89,7 +95,7 @@ final class SubscriptionServiceTest extends TestCase
             ->willReturn(true);
 
         $this->repository->expects($this->never())->method('create');
-        $this->email->expects($this->never())->method('sendConfirmation');
+        $this->mailer->expects($this->never())->method('sendConfirmation');
 
         $this->service->subscribe('user@example.com', 'owner/repo');
     }

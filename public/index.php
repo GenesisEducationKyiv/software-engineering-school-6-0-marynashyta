@@ -15,6 +15,7 @@ use App\Repository\SubscriptionRepository;
 use App\Services\EmailService;
 use App\Services\GitHubService;
 use App\Services\SubscriptionService;
+use App\Services\TokenGenerator;
 use GuzzleHttp\Client;
 use Slim\Factory\AppFactory;
 
@@ -65,9 +66,10 @@ $emailService = new EmailService(
 );
 
 $subscriptionService = new SubscriptionService(
-    repository: new SubscriptionRepository($pdo),
-    github:     $githubService,
-    email:      $emailService,
+    repository:     new SubscriptionRepository($pdo),
+    github:         $githubService,
+    mailer:         $emailService,
+    tokenGenerator: new TokenGenerator(),
 );
 
 // ── Controllers ───────────────────────────────────────────────────────────────

@@ -6,7 +6,7 @@ namespace App\Exceptions;
 
 use RuntimeException;
 
-class RateLimitException extends RuntimeException
+final class RateLimitException extends RuntimeException
 {
     private readonly int $retryAfter;
 

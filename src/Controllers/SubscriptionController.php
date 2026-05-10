@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Exceptions\HttpExceptionInterface;
-use App\Services\SubscriptionService;
+use App\Services\SubscriptionServiceInterface;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
 final class SubscriptionController
 {
-    public function __construct(private SubscriptionService $service)
+    public function __construct(private readonly SubscriptionServiceInterface $service)
     {
     }
 

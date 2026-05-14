@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\DTO\Subscription;
 use App\Exceptions\AlreadySubscribedException;
 use App\Exceptions\InvalidRepositoryFormatException;
 use App\Exceptions\RateLimitException;
@@ -18,7 +19,7 @@ final class SubscriptionService implements SubscriptionServiceInterface
         private readonly SubscriptionRepositoryInterface $repository,
         private readonly GitHubServiceInterface $github,
         private readonly ConfirmationMailerInterface $mailer,
-        private readonly TokenGenerator $tokenGenerator,
+        private readonly TokenGeneratorInterface $tokenGenerator,
     ) {
     }
 
@@ -59,15 +60,15 @@ final class SubscriptionService implements SubscriptionServiceInterface
             throw new TokenNotFoundException($token);
         }
 
-        if ($subscription['confirmed'] === 1) {
+        if ($subscription->confirmed) {
             return;
         }
 
         // Snapshot the current latest release so the subscriber is not notified
         // about releases that already existed at the time of subscription.
-        $latestTag = $this->github->getLatestRelease($subscription['repo']);
+        $latestTag = $this->github->getLatestRelease($subscription->repo);
 
-        $this->repository->confirm($subscription['id'], $latestTag);
+        $this->repository->confirm($subscription->id, $latestTag);
     }
 
     /**
@@ -81,12 +82,12 @@ final class SubscriptionService implements SubscriptionServiceInterface
             throw new TokenNotFoundException($token);
         }
 
-        $this->repository->delete($subscription['id']);
+        $this->repository->delete($subscription->id);
     }
 
     /**
      * @throws ValidationException
-     * @return list<array{email: string, repo: string, confirmed: bool, last_seen_tag: string|null}>
+     * @return list<Subscription>
      */
     public function getSubscriptions(string $email): array
     {

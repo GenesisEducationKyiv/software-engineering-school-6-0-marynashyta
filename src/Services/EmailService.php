@@ -8,7 +8,7 @@ use App\Services\Templates\EmailTemplates;
 use PHPMailer\PHPMailer\Exception as PHPMailerException;
 use PHPMailer\PHPMailer\PHPMailer;
 
-final class EmailService implements EmailServiceInterface
+final class EmailService implements ConfirmationMailerInterface, NotificationMailerInterface
 {
     private string $appUrl;
 

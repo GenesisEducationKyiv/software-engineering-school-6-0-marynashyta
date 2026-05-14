@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Scanner;
 
+use App\DTO\Subscription;
 use App\Exceptions\RateLimitException;
-use App\Metrics\MetricsCollector;
+use App\Metrics\MetricsCollectorInterface;
 use App\Repository\SubscriptionRepositoryInterface;
 use App\Services\GitHubServiceInterface;
 use App\Services\NotificationMailerInterface;
@@ -19,7 +20,7 @@ final class ReleaseScanner
         private readonly SubscriptionRepositoryInterface $repository,
         private readonly GitHubServiceInterface $github,
         private readonly NotificationMailerInterface $mailer,
-        private readonly MetricsCollector $metrics,
+        private readonly MetricsCollectorInterface $metrics,
         private readonly \Closure $logger,
     ) {
     }
@@ -33,11 +34,10 @@ final class ReleaseScanner
             return;
         }
 
-        /** @var array<string, list<array{id: int, email: string, repo: string, last_seen_tag: string|null,
-         *                                                                             unsubscribe_token: string}>> $grouped */
+        /** @var array<string, list<Subscription>> $grouped */
         $grouped = [];
         foreach ($subscriptions as $sub) {
-            $grouped[$sub['repo']][] = $sub;
+            $grouped[$sub->repo][] = $sub;
         }
 
         $repoCount = count($grouped);
@@ -50,10 +50,7 @@ final class ReleaseScanner
         }
     }
 
-    /**
-     * @param list<array{id: int, email: string, repo: string, last_seen_tag: string|null,
-     *                   unsubscribe_token: string}> $repoSubscriptions
-     */
+    /** @param list<Subscription> $repoSubscriptions */
     private function processRepo(string $repo, array $repoSubscriptions): void
     {
         try {
@@ -76,25 +73,25 @@ final class ReleaseScanner
         $this->log('INFO', "Latest release for {$repo}: {$latestTag}");
 
         foreach ($repoSubscriptions as $sub) {
-            if ($latestTag === $sub['last_seen_tag']) {
+            if ($latestTag === $sub->lastSeenTag) {
                 continue;
             }
 
-            $prev = $sub['last_seen_tag'] ?? 'none';
-            $this->log('INFO', "New release for {$sub['email']} on {$repo}: {$latestTag} (was: {$prev})");
+            $prev = $sub->lastSeenTag ?? 'none';
+            $this->log('INFO', "New release for {$sub->email} on {$repo}: {$latestTag} (was: {$prev})");
 
             try {
                 $this->mailer->sendReleaseNotification(
-                    $sub['email'],
+                    $sub->email,
                     $repo,
                     $latestTag,
-                    $sub['unsubscribe_token']
+                    $sub->unsubscribeToken
                 );
-                $this->repository->updateLastSeenTag($sub['id'], $latestTag);
+                $this->repository->updateLastSeenTag($sub->id, $latestTag);
                 $this->metrics->recordNotificationSent();
-                $this->log('INFO', "Notification sent to {$sub['email']} for {$repo} {$latestTag}");
+                $this->log('INFO', "Notification sent to {$sub->email} for {$repo} {$latestTag}");
             } catch (\Throwable $e) {
-                $this->log('ERROR', "Failed to send notification to {$sub['email']}: " . $e->getMessage());
+                $this->log('ERROR', "Failed to send notification to {$sub->email}: " . $e->getMessage());
             }
         }
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\DTO\Subscription;
 use App\Exceptions\AlreadySubscribedException;
 use App\Exceptions\TokenNotFoundException;
 use App\Exceptions\ValidationException;
@@ -110,7 +111,7 @@ final class SubscriptionServiceTest extends TestCase
         $this->repository->expects($this->once())
             ->method('findByConfirmToken')
             ->with($token)
-            ->willReturn(['id' => 1, 'repo' => 'owner/repo', 'confirmed' => 0]);
+            ->willReturn(new Subscription(1, 'user@example.com', 'owner/repo', false, null, 'tok'));
 
         $this->github->expects($this->once())
             ->method('getLatestRelease')
@@ -132,7 +133,7 @@ final class SubscriptionServiceTest extends TestCase
         $this->repository->expects($this->once())
             ->method('findByConfirmToken')
             ->with($token)
-            ->willReturn(['id' => 2, 'repo' => 'owner/repo', 'confirmed' => 1]);
+            ->willReturn(new Subscription(2, 'user@example.com', 'owner/repo', true, 'v1.0.0', 'tok'));
 
         $this->github->expects($this->never())->method('getLatestRelease');
         $this->repository->expects($this->never())->method('confirm');
@@ -163,7 +164,7 @@ final class SubscriptionServiceTest extends TestCase
         $this->repository->expects($this->once())
             ->method('findByUnsubscribeToken')
             ->with($token)
-            ->willReturn(['id' => 7]);
+            ->willReturn(new Subscription(7, 'user@example.com', 'owner/repo', true, null, $token));
 
         $this->repository->expects($this->once())
             ->method('delete')
@@ -191,12 +192,7 @@ final class SubscriptionServiceTest extends TestCase
     public function getSubscriptionsDelegatesToRepositoryAndReturnsResult(): void
     {
         $expected = [
-            [
-                'email' => 'user@example.com',
-                'repo' => 'owner/repo1',
-                'confirmed' => true,
-                'last_seen_tag' => 'v1.0.0',
-            ],
+            new Subscription(1, 'user@example.com', 'owner/repo1', true, 'v1.0.0', 'tok'),
         ];
 
         $this->repository->expects($this->once())

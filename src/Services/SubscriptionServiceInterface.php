@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\DTO\Subscription;
 use App\Exceptions\AlreadySubscribedException;
 use App\Exceptions\InvalidRepositoryFormatException;
 use App\Exceptions\RateLimitException;
@@ -34,7 +35,7 @@ interface SubscriptionServiceInterface
 
     /**
      * @throws ValidationException
-     * @return list<array{email: string, repo: string, confirmed: bool, last_seen_tag: string|null}>
+     * @return list<Subscription>
      */
     public function getSubscriptions(string $email): array;
 }

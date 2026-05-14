@@ -8,7 +8,7 @@ use App\Cache\RedisCache;
 use PDO;
 use Throwable;
 
-final class MetricsCollector
+final class MetricsCollector implements MetricsCollectorInterface
 {
     private const KEY_HTTP = 'rna:http_requests';
     private const KEY_GITHUB = 'rna:github_api_calls';

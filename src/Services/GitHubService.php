@@ -9,7 +9,7 @@ use App\Exceptions\InvalidRepositoryFormatException;
 use App\Exceptions\RateLimitException;
 use App\Exceptions\RepositoryNotFoundException;
 use App\Infrastructure\Json;
-use App\Metrics\MetricsCollector;
+use App\Metrics\MetricsCollectorInterface;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\GuzzleException;
@@ -24,7 +24,7 @@ final class GitHubService implements GitHubServiceInterface
         private readonly ClientInterface $client,
         private readonly ?string $token = null,
         private readonly ?RedisCache $cache = null,
-        private readonly ?MetricsCollector $metrics = null,
+        private readonly ?MetricsCollectorInterface $metrics = null,
     ) {
     }
 

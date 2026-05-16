@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\DTO\SubscribeRequest;
 use App\DTO\Subscription;
 use App\Exceptions\AlreadySubscribedException;
 use App\Exceptions\TokenNotFoundException;
@@ -67,7 +68,7 @@ final class SubscriptionServiceTest extends TestCase
                 $this->matchesRegularExpression('/^[0-9a-f]{64}$/')
             );
 
-        $this->service->subscribe('user@example.com', 'owner/repo');
+        $this->service->subscribe(new SubscribeRequest('user@example.com', 'owner/repo'));
     }
 
     #[Test]
@@ -81,7 +82,7 @@ final class SubscriptionServiceTest extends TestCase
         $this->repository->expects($this->never())->method('create');
         $this->mailer->expects($this->never())->method('sendConfirmation');
 
-        $this->service->subscribe($email, 'owner/repo');
+        $this->service->subscribe(new SubscribeRequest($email, 'owner/repo'));
     }
 
     #[Test]
@@ -98,7 +99,7 @@ final class SubscriptionServiceTest extends TestCase
         $this->repository->expects($this->never())->method('create');
         $this->mailer->expects($this->never())->method('sendConfirmation');
 
-        $this->service->subscribe('user@example.com', 'owner/repo');
+        $this->service->subscribe(new SubscribeRequest('user@example.com', 'owner/repo'));
     }
 
     // ─── confirm ─────────────────────────────────────────────────────────────

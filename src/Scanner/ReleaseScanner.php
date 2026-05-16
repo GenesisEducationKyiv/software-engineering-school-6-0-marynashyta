@@ -7,21 +7,18 @@ namespace App\Scanner;
 use App\DTO\Subscription;
 use App\Exceptions\RateLimitException;
 use App\Metrics\MetricsCollectorInterface;
-use App\Repository\SubscriptionRepositoryInterface;
+use App\Repository\SubscriptionScanRepositoryInterface;
 use App\Services\GitHubServiceInterface;
 use App\Services\NotificationMailerInterface;
 
 final class ReleaseScanner
 {
-    /**
-     * @param \Closure(string, string): void $logger
-     */
     public function __construct(
-        private readonly SubscriptionRepositoryInterface $repository,
+        private readonly SubscriptionScanRepositoryInterface $repository,
         private readonly GitHubServiceInterface $github,
         private readonly NotificationMailerInterface $mailer,
         private readonly MetricsCollectorInterface $metrics,
-        private readonly \Closure $logger,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -30,7 +27,7 @@ final class ReleaseScanner
         $subscriptions = $this->repository->findAllConfirmed();
 
         if (empty($subscriptions)) {
-            $this->log('INFO', 'No confirmed subscriptions found.');
+            $this->logger->log('INFO', 'No confirmed subscriptions found.');
             return;
         }
 
@@ -42,10 +39,10 @@ final class ReleaseScanner
 
         $repoCount = count($grouped);
         $subCount  = count($subscriptions);
-        $this->log('INFO', "Checking {$repoCount} unique repo(s) for {$subCount} subscription(s).");
+        $this->logger->log('INFO', "Checking {$repoCount} unique repo(s) for {$subCount} subscription(s).");
 
         foreach ($grouped as $repo => $repoSubscriptions) {
-            $this->log('INFO', "Checking latest release for: {$repo}");
+            $this->logger->log('INFO', "Checking latest release for: {$repo}");
             $this->processRepo($repo, $repoSubscriptions);
         }
     }
@@ -57,20 +54,20 @@ final class ReleaseScanner
             $latestTag = $this->github->getLatestRelease($repo);
         } catch (RateLimitException $e) {
             $retryAfter = $e->getRetryAfter();
-            $this->log('WARNING', "Rate limit hit for {$repo}. Sleeping {$retryAfter}s...");
+            $this->logger->log('WARNING', "Rate limit hit for {$repo}. Sleeping {$retryAfter}s...");
             sleep($retryAfter);
             return;
         } catch (\Throwable $e) {
-            $this->log('ERROR', "Failed to fetch release for {$repo}: " . $e->getMessage());
+            $this->logger->log('ERROR', "Failed to fetch release for {$repo}: " . $e->getMessage());
             return;
         }
 
         if ($latestTag === null) {
-            $this->log('INFO', "No releases found for {$repo}.");
+            $this->logger->log('INFO', "No releases found for {$repo}.");
             return;
         }
 
-        $this->log('INFO', "Latest release for {$repo}: {$latestTag}");
+        $this->logger->log('INFO', "Latest release for {$repo}: {$latestTag}");
 
         foreach ($repoSubscriptions as $sub) {
             if ($latestTag === $sub->lastSeenTag) {
@@ -78,7 +75,7 @@ final class ReleaseScanner
             }
 
             $prev = $sub->lastSeenTag ?? 'none';
-            $this->log('INFO', "New release for {$sub->email} on {$repo}: {$latestTag} (was: {$prev})");
+            $this->logger->log('INFO', "New release for {$sub->email} on {$repo}: {$latestTag} (was: {$prev})");
 
             try {
                 $this->mailer->sendReleaseNotification(
@@ -89,15 +86,10 @@ final class ReleaseScanner
                 );
                 $this->repository->updateLastSeenTag($sub->id, $latestTag);
                 $this->metrics->recordNotificationSent();
-                $this->log('INFO', "Notification sent to {$sub->email} for {$repo} {$latestTag}");
+                $this->logger->log('INFO', "Notification sent to {$sub->email} for {$repo} {$latestTag}");
             } catch (\Throwable $e) {
-                $this->log('ERROR', "Failed to send notification to {$sub->email}: " . $e->getMessage());
+                $this->logger->log('ERROR', "Failed to send notification to {$sub->email}: " . $e->getMessage());
             }
         }
-    }
-
-    private function log(string $level, string $message): void
-    {
-        ($this->logger)($level, $message);
     }
 }

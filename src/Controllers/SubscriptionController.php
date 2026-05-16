@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\DTO\SubscribeRequest;
 use App\Exceptions\HttpExceptionInterface;
 use App\Services\SubscriptionServiceInterface;
 use Psr\Http\Message\ResponseInterface as Response;
@@ -21,17 +22,19 @@ final class SubscriptionController
      */
     public function subscribe(Request $req, Response $res): Response
     {
-        $body  = $req->getParsedBody();
-        $body  = is_array($body) ? $body : [];
-        $email = trim((string) ($body['email'] ?? ''));
-        $repo  = trim((string) ($body['repo'] ?? ''));
+        $body    = $req->getParsedBody();
+        $body    = is_array($body) ? $body : [];
+        $request = new SubscribeRequest(
+            email: trim((string) ($body['email'] ?? '')),
+            repo:  trim((string) ($body['repo'] ?? '')),
+        );
 
-        if ($email === '' || $repo === '') {
+        if ($request->email === '' || $request->repo === '') {
             return $this->json($res, ['message' => 'Fields "email" and "repo" are required'], 400);
         }
 
         try {
-            $this->service->subscribe($email, $repo);
+            $this->service->subscribe($request);
             return $this->json($res, ['message' => 'Subscription created. Please check your email to confirm.'], 201);
         } catch (HttpExceptionInterface $e) {
             return $this->json($res, ['message' => $e->getMessage()], $e->getStatusCode());

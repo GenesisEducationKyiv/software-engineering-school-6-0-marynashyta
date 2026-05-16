@@ -13,6 +13,4 @@ interface MetricsCollectorInterface
     public function recordNotificationSent(): void;
 
     public function recordScannerCycle(): void;
-
-    public function render(): string;
 }

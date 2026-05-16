@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\DTO\SubscribeRequest;
 use App\DTO\Subscription;
 use App\Exceptions\AlreadySubscribedException;
 use App\Exceptions\InvalidRepositoryFormatException;
@@ -21,7 +22,7 @@ interface SubscriptionServiceInterface
      * @throws RateLimitException
      * @throws AlreadySubscribedException
      */
-    public function subscribe(string $email, string $repo): void;
+    public function subscribe(SubscribeRequest $request): void;
 
     /**
      * @throws TokenNotFoundException

@@ -7,7 +7,7 @@ namespace App\Repository;
 use App\DTO\Subscription;
 use PDO;
 
-final class SubscriptionRepository implements SubscriptionRepositoryInterface
+final class SubscriptionRepository implements SubscriptionRepositoryInterface, SubscriptionScanRepositoryInterface
 {
     public function __construct(private readonly PDO $db)
     {

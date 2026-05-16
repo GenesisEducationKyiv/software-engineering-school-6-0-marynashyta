@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\DTO\SubscribeRequest;
 use App\DTO\Subscription;
 use App\Exceptions\AlreadySubscribedException;
 use App\Exceptions\InvalidRepositoryFormatException;
@@ -30,21 +31,21 @@ final class SubscriptionService implements SubscriptionServiceInterface
      * @throws RateLimitException
      * @throws AlreadySubscribedException
      */
-    public function subscribe(string $email, string $repo): void
+    public function subscribe(SubscribeRequest $request): void
     {
-        $this->assertValidEmail($email);
+        $this->assertValidEmail($request->email);
 
-        $this->github->validateRepository($repo);
+        $this->github->validateRepository($request->repo);
 
-        if ($this->repository->existsByEmailAndRepo($email, $repo)) {
-            throw new AlreadySubscribedException($email, $repo);
+        if ($this->repository->existsByEmailAndRepo($request->email, $request->repo)) {
+            throw new AlreadySubscribedException($request->email, $request->repo);
         }
 
         $confirmToken     = $this->tokenGenerator->generate();
         $unsubscribeToken = $this->tokenGenerator->generate();
 
-        $this->repository->create($email, $repo, $confirmToken, $unsubscribeToken);
-        $this->mailer->sendConfirmation($email, $repo, $confirmToken, $unsubscribeToken);
+        $this->repository->create($request->email, $request->repo, $confirmToken, $unsubscribeToken);
+        $this->mailer->sendConfirmation($request->email, $request->repo, $confirmToken, $unsubscribeToken);
     }
 
     /**

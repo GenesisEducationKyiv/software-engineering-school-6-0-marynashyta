@@ -8,11 +8,13 @@ use App\Controllers\SubscriptionController;
 use App\Database\Connection;
 use App\Infrastructure\Env;
 use App\Metrics\MetricsCollector;
+use App\Metrics\PrometheusRenderer;
 use App\Middleware\ApiKeyMiddleware;
 use App\Middleware\CorsMiddleware;
 use App\Middleware\MetricsMiddleware;
 use App\Repository\SubscriptionRepository;
 use App\Services\EmailService;
+use App\Services\GitHubReleaseUrlBuilder;
 use App\Services\GitHubService;
 use App\Services\SubscriptionService;
 use App\Services\TokenGenerator;
@@ -41,8 +43,9 @@ $redisCache = RedisCache::create(
     db:   Env::int('REDIS_DB', 0),
 );
 
-$pdo     = Connection::getInstance();
-$metrics = new MetricsCollector($redisCache, $pdo);
+$pdo      = Connection::getInstance();
+$metrics  = new MetricsCollector($redisCache);
+$renderer = new PrometheusRenderer($redisCache, $pdo);
 
 // ── Application services ──────────────────────────────────────────────────────
 
@@ -56,13 +59,14 @@ $githubService = new GitHubService(
 );
 
 $emailService = new EmailService(
-    host:        Env::string('MAIL_HOST', 'localhost'),
-    port:        Env::int('MAIL_PORT', 1025),
-    username:    Env::string('MAIL_USERNAME'),
-    password:    Env::string('MAIL_PASSWORD'),
-    fromAddress: Env::string('MAIL_FROM_ADDRESS', 'noreply@releases-api.app'),
-    fromName:    Env::string('MAIL_FROM_NAME', 'Release Notifications'),
-    appUrl:      Env::string('APP_URL', 'http://localhost:8080'),
+    host:              Env::string('MAIL_HOST', 'localhost'),
+    port:              Env::int('MAIL_PORT', 1025),
+    username:          Env::string('MAIL_USERNAME'),
+    password:          Env::string('MAIL_PASSWORD'),
+    fromAddress:       Env::string('MAIL_FROM_ADDRESS', 'noreply@releases-api.app'),
+    fromName:          Env::string('MAIL_FROM_NAME', 'Release Notifications'),
+    appUrl:            Env::string('APP_URL', 'http://localhost:8080'),
+    releaseUrlBuilder: new GitHubReleaseUrlBuilder(),
 );
 
 $subscriptionService = new SubscriptionService(
@@ -75,7 +79,7 @@ $subscriptionService = new SubscriptionService(
 // ── Controllers ───────────────────────────────────────────────────────────────
 
 $subscriptionController = new SubscriptionController($subscriptionService);
-$metricsController      = new MetricsController($metrics);
+$metricsController      = new MetricsController($renderer);
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 
@@ -90,6 +94,6 @@ $app->post('/api/subscribe', [$subscriptionController, 'subscribe']);
 $app->get('/api/confirm/{token}', [$subscriptionController, 'confirm']);
 $app->get('/api/unsubscribe/{token}', [$subscriptionController, 'unsubscribe']);
 $app->get('/api/subscriptions', [$subscriptionController, 'getSubscriptions']);
-$app->get('/metrics', [$metricsController,      'metrics']);
+$app->get('/metrics', [$metricsController, 'metrics']);
 
 $app->run();

@@ -33,7 +33,7 @@ jobs:
       - name: Run integration tests
         env:
           API_BASE_URL: http://localhost:8080
-          DB_HOST: localhost
+          DB_HOST: 127.0.0.1
           DB_PORT: 3306
           DB_NAME: release_notifications
           DB_USER: app

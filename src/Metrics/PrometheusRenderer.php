@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace App\Metrics;
 
 use App\Cache\CacheInterface;
-use PDO;
 use Throwable;
 
 final class PrometheusRenderer implements MetricsRendererInterface
 {
     public function __construct(
         private readonly CacheInterface $cache,
-        private readonly ?PDO $db = null,
+        private readonly ?ActiveSubscriptionCounterInterface $counter = null,
     ) {
     }
 
@@ -34,10 +33,10 @@ final class PrometheusRenderer implements MetricsRendererInterface
         $lines[] = '# HELP rna_github_api_calls_total Total GitHub API calls made';
         $lines[] = '# TYPE rna_github_api_calls_total counter';
         foreach ($this->cache->getAllHash(MetricsKeys::GITHUB) as $field => $count) {
-            $parts    = explode(':', $field, 2);
-            $endpoint = $parts[0];
-            $cache    = $parts[1] ?? '';
-            $lines[] = "rna_github_api_calls_total{endpoint=\"{$endpoint}\",cache=\"{$cache}\"} {$count}";
+            $parts       = explode(':', $field, 2);
+            $endpoint    = $parts[0];
+            $cacheStatus = $parts[1] ?? '';
+            $lines[] = "rna_github_api_calls_total{endpoint=\"{$endpoint}\",cache=\"{$cacheStatus}\"} {$count}";
         }
 
         $lines[] = '';
@@ -67,12 +66,8 @@ final class PrometheusRenderer implements MetricsRendererInterface
 
     private function countActiveSubscriptions(): int
     {
-        if ($this->db === null) {
-            return 0;
-        }
         try {
-            $stmt = $this->db->query('SELECT COUNT(*) FROM subscriptions WHERE confirmed = 1');
-            return $stmt !== false ? (int) $stmt->fetchColumn() : 0;
+            return $this->counter?->countActive() ?? 0;
         } catch (Throwable) {
             return 0;
         }

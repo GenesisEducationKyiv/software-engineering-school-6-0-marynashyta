@@ -1,0 +1,47 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/php-setup
+        with:
+          php-extensions: pdo_mysql, zip
+
+      - name: Start test stack
+        run: docker compose -f docker-compose.test.yml up -d --build
+
+      - name: Wait for API to be healthy
+        run: |
+          for i in $(seq 1 40); do
+            curl -sf http://localhost:8080/ && break
+            echo "Waiting for API... ($i/40)"
+            sleep 3
+          done
+          curl -sf http://localhost:8080/ || { echo "API never became healthy"; exit 1; }
+
+      - name: Run integration tests
+        env:
+          API_BASE_URL: http://localhost:8080
+          DB_HOST: localhost
+          DB_PORT: 3306
+          DB_NAME: release_notifications
+          DB_USER: app
+          DB_PASS: secret
+          API_KEY: ""
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: vendor/bin/phpunit -c phpunit.integration.xml --colors=always
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v

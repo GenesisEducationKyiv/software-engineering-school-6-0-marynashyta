@@ -13,7 +13,7 @@ use Throwable;
  * All operations degrade silently to no-ops when Redis is unavailable,
  * so a Redis outage never affects the main application flow.
  */
-class RedisCache implements CacheInterface
+final class RedisCache implements CacheInterface
 {
     private bool $connected = false;
 

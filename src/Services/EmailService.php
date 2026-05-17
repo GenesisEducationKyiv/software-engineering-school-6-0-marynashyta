@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\DTO\SmtpConfig;
 use App\Services\Templates\EmailTemplates;
 use PHPMailer\PHPMailer\Exception as PHPMailerException;
 use PHPMailer\PHPMailer\PHPMailer;
@@ -13,12 +14,7 @@ final class EmailService implements ConfirmationMailerInterface, NotificationMai
     private string $appUrl;
 
     public function __construct(
-        private string $host,
-        private int $port,
-        private string $username,
-        private string $password,
-        private string $fromAddress,
-        private string $fromName,
+        private readonly SmtpConfig $smtp,
         string $appUrl,
         private readonly ReleaseUrlBuilderInterface $releaseUrlBuilder,
     ) {
@@ -71,22 +67,22 @@ final class EmailService implements ConfirmationMailerInterface, NotificationMai
         $mail = new PHPMailer(true);
 
         $mail->isSMTP();
-        $mail->Host = $this->host;
-        $mail->Port = $this->port;
+        $mail->Host = $this->smtp->host;
+        $mail->Port = $this->smtp->port;
 
-        if ($this->username !== '') {
+        if ($this->smtp->username !== '') {
             $mail->SMTPAuth   = true;
-            $mail->SMTPSecure = $this->port === 465
+            $mail->SMTPSecure = $this->smtp->port === 465
                 ? PHPMailer::ENCRYPTION_SMTPS
                 : PHPMailer::ENCRYPTION_STARTTLS;
-            $mail->Username = $this->username;
-            $mail->Password = $this->password;
+            $mail->Username = $this->smtp->username;
+            $mail->Password = $this->smtp->password;
         } else {
             $mail->SMTPAuth   = false;
             $mail->SMTPSecure = '';
         }
 
-        $mail->setFrom($this->fromAddress, $this->fromName);
+        $mail->setFrom($this->smtp->fromAddress, $this->smtp->fromName);
         $mail->addAddress($to);
 
         $mail->isHTML();

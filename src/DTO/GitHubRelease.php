@@ -7,7 +7,7 @@ namespace App\DTO;
 final readonly class GitHubRelease
 {
     public function __construct(
-        public string $tagName,
+        public ?string $tagName,
     ) {
     }
 
@@ -15,7 +15,7 @@ final readonly class GitHubRelease
     public static function fromApiResponse(array $data): self
     {
         return new self(
-            tagName: is_string($data['tag_name']) ? $data['tag_name'] : '',
+            tagName: is_string($data['tag_name']) && $data['tag_name'] !== '' ? $data['tag_name'] : null,
         );
     }
 }

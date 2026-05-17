@@ -29,6 +29,11 @@
             "Tests\\": "tests/"
         }
     },
+    "config": {
+        "platform": {
+            "php": "8.2"
+        }
+    },
     "scripts": {
         "test": "phpunit",
         "test:integration": "phpunit -c phpunit.integration.xml",

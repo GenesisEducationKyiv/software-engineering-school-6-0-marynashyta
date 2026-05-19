@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Cache\RedisCache;
+use App\Cache\CacheInterface;
+use App\DTO\GitHubRelease;
 use App\Exceptions\InvalidRepositoryFormatException;
 use App\Exceptions\RateLimitException;
 use App\Exceptions\RepositoryNotFoundException;
 use App\Infrastructure\Json;
-use App\Metrics\MetricsCollector;
+use App\Metrics\MetricsCollectorInterface;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\GuzzleException;
@@ -23,8 +24,8 @@ final class GitHubService implements GitHubServiceInterface
     public function __construct(
         private readonly ClientInterface $client,
         private readonly ?string $token = null,
-        private readonly ?RedisCache $cache = null,
-        private readonly ?MetricsCollector $metrics = null,
+        private readonly ?CacheInterface $cache = null,
+        private readonly ?MetricsCollectorInterface $metrics = null,
     ) {
     }
 
@@ -80,10 +81,9 @@ final class GitHubService implements GitHubServiceInterface
         }
 
         try {
-            $data      = $this->makeRequest(self::API_BASE . "/repos/{$repo}/releases/latest");
-            $latestTag = isset($data['tag_name']) && is_string($data['tag_name'])
-                ? $data['tag_name']
-                : null;
+            $data    = $this->makeRequest(self::API_BASE . "/repos/{$repo}/releases/latest");
+            $release = GitHubRelease::fromApiResponse($data);
+            $latestTag = $release->tagName !== '' ? $release->tagName : null;
 
             $this->cache?->set($cacheKey, $latestTag ?? self::CACHE_NULL_TAG, self::CACHE_TTL);
             $this->metrics?->recordGithubApiCall('latest_release', false);

@@ -79,6 +79,10 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Get week number for cache rotation
+        id: date
+        run: echo "week=$(date +%Y-%W)" >> $GITHUB_OUTPUT
+
       - name: Build image (with GHA layer cache)
         uses: docker/build-push-action@v6
         with:
@@ -86,8 +90,8 @@ jobs:
           push: false
           load: true
           tags: ${{ env.IMAGE_NAME }}:${{ github.sha }}
-          cache-from: type=gha,scope=v2
-          cache-to: type=gha,mode=max,scope=v2
+          cache-from: type=gha,scope=build-${{ steps.date.outputs.week }}
+          cache-to: type=gha,mode=max,scope=build-${{ steps.date.outputs.week }}
 
       - name: Scan image for vulnerabilities (Trivy)
         uses: aquasecurity/trivy-action@master

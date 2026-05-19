@@ -8,7 +8,7 @@ use App\Services\Templates\EmailTemplates;
 use PHPMailer\PHPMailer\Exception as PHPMailerException;
 use PHPMailer\PHPMailer\PHPMailer;
 
-final class EmailService implements EmailServiceInterface
+final class EmailService implements ConfirmationMailerInterface, NotificationMailerInterface
 {
     private string $appUrl;
 
@@ -19,13 +19,13 @@ final class EmailService implements EmailServiceInterface
         private string $password,
         private string $fromAddress,
         private string $fromName,
-        string $appUrl
+        string $appUrl,
+        private readonly ReleaseUrlBuilderInterface $releaseUrlBuilder,
     ) {
         $this->appUrl = rtrim($appUrl, '/');
     }
 
     /**
-     *
      * @throws PHPMailerException
      */
     public function sendConfirmation(
@@ -34,7 +34,7 @@ final class EmailService implements EmailServiceInterface
         string $confirmToken,
         string $unsubscribeToken
     ): void {
-        $confirmUrl = "{$this->appUrl}/api/confirm/{$confirmToken}";
+        $confirmUrl     = "{$this->appUrl}/api/confirm/{$confirmToken}";
         $unsubscribeUrl = "{$this->appUrl}/api/unsubscribe/{$unsubscribeToken}";
 
         $this->send(
@@ -45,7 +45,6 @@ final class EmailService implements EmailServiceInterface
     }
 
     /**
-     *
      * @throws PHPMailerException
      */
     public function sendReleaseNotification(
@@ -54,7 +53,7 @@ final class EmailService implements EmailServiceInterface
         string $tag,
         string $unsubscribeToken
     ): void {
-        $releaseUrl = "https://github.com/{$repo}/releases/tag/{$tag}";
+        $releaseUrl     = $this->releaseUrlBuilder->buildReleaseUrl($repo, $tag);
         $unsubscribeUrl = "{$this->appUrl}/api/unsubscribe/{$unsubscribeToken}";
 
         $this->send(
@@ -65,7 +64,6 @@ final class EmailService implements EmailServiceInterface
     }
 
     /**
-     *
      * @throws PHPMailerException
      */
     private function send(string $to, string $subject, string $body): void
@@ -77,14 +75,14 @@ final class EmailService implements EmailServiceInterface
         $mail->Port = $this->port;
 
         if ($this->username !== '') {
-            $mail->SMTPAuth = true;
+            $mail->SMTPAuth   = true;
             $mail->SMTPSecure = $this->port === 465
                 ? PHPMailer::ENCRYPTION_SMTPS
                 : PHPMailer::ENCRYPTION_STARTTLS;
             $mail->Username = $this->username;
             $mail->Password = $this->password;
         } else {
-            $mail->SMTPAuth = false;
+            $mail->SMTPAuth   = false;
             $mail->SMTPSecure = '';
         }
 
@@ -94,7 +92,7 @@ final class EmailService implements EmailServiceInterface
         $mail->isHTML();
         $mail->CharSet = 'UTF-8';
         $mail->Subject = $subject;
-        $mail->Body = $body;
+        $mail->Body    = $body;
         $mail->AltBody = strip_tags(str_replace(['<br>', '<br/>', '<br />'], "\n", $body));
 
         $mail->send();

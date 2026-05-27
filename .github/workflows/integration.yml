@@ -1,0 +1,22 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/php-setup
+        with:
+          php-extensions: pdo_mysql, zip
+
+      - name: Run integration tests
+        run: make test-integration

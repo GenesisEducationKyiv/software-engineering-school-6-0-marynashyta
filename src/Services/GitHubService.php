@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Cache\CacheInterface;
+use App\Cache\NullCache;
 use App\DTO\GitHubRelease;
 use App\Exceptions\InvalidRepositoryFormatException;
 use App\Exceptions\RateLimitException;
 use App\Exceptions\RepositoryNotFoundException;
 use App\Infrastructure\Json;
 use App\Metrics\MetricsCollectorInterface;
+use App\Metrics\NullMetricsCollector;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\GuzzleException;
@@ -24,8 +26,8 @@ final class GitHubService implements GitHubServiceInterface
     public function __construct(
         private readonly ClientInterface $client,
         private readonly ?string $token = null,
-        private readonly ?CacheInterface $cache = null,
-        private readonly ?MetricsCollectorInterface $metrics = null,
+        private readonly CacheInterface $cache = new NullCache(),
+        private readonly MetricsCollectorInterface $metrics = new NullMetricsCollector(),
     ) {
     }
 
@@ -42,15 +44,15 @@ final class GitHubService implements GitHubServiceInterface
 
         $cacheKey = "github:validate:{$repo}";
 
-        if ($this->cache?->get($cacheKey) !== null) {
-            $this->metrics?->recordGithubApiCall('validate_repo', true);
+        if ($this->cache->get($cacheKey) !== null) {
+            $this->metrics->recordGithubApiCall('validate_repo', true);
             return;
         }
 
         try {
             $this->makeRequest(self::API_BASE . "/repos/{$repo}");
-            $this->cache?->set($cacheKey, '1', self::CACHE_TTL);
-            $this->metrics?->recordGithubApiCall('validate_repo', false);
+            $this->cache->set($cacheKey, '1', self::CACHE_TTL);
+            $this->metrics->recordGithubApiCall('validate_repo', false);
         } catch (ClientException $e) {
             $statusCode = $e->getResponse()->getStatusCode();
 
@@ -73,28 +75,28 @@ final class GitHubService implements GitHubServiceInterface
     public function getLatestRelease(string $repo): ?string
     {
         $cacheKey = "github:release:{$repo}";
-        $cached   = $this->cache?->get($cacheKey);
+        $cached   = $this->cache->get($cacheKey);
 
         if ($cached !== null) {
-            $this->metrics?->recordGithubApiCall('latest_release', true);
+            $this->metrics->recordGithubApiCall('latest_release', true);
             return $cached === self::CACHE_NULL_TAG ? null : $cached;
         }
 
         try {
-            $data    = $this->makeRequest(self::API_BASE . "/repos/{$repo}/releases/latest");
-            $release = GitHubRelease::fromApiResponse($data);
-            $latestTag = $release->tagName !== '' ? $release->tagName : null;
+            $data      = $this->makeRequest(self::API_BASE . "/repos/{$repo}/releases/latest");
+            $release   = GitHubRelease::fromApiResponse($data);
+            $latestTag = $release->tagName;
 
-            $this->cache?->set($cacheKey, $latestTag ?? self::CACHE_NULL_TAG, self::CACHE_TTL);
-            $this->metrics?->recordGithubApiCall('latest_release', false);
+            $this->cache->set($cacheKey, $latestTag ?? self::CACHE_NULL_TAG, self::CACHE_TTL);
+            $this->metrics->recordGithubApiCall('latest_release', false);
 
             return $latestTag;
         } catch (ClientException $e) {
             $statusCode = $e->getResponse()->getStatusCode();
 
             if ($statusCode === 404) {
-                $this->cache?->set($cacheKey, self::CACHE_NULL_TAG, self::CACHE_TTL);
-                $this->metrics?->recordGithubApiCall('latest_release', false);
+                $this->cache->set($cacheKey, self::CACHE_NULL_TAG, self::CACHE_TTL);
+                $this->metrics->recordGithubApiCall('latest_release', false);
                 return null;
             }
 

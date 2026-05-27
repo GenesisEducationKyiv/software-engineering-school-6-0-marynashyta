@@ -10,6 +10,7 @@ COPY composer.json composer.lock ./
 
 RUN composer install \
     --no-interaction \
+    --no-dev \
     --no-scripts \
     --prefer-dist \
     --optimize-autoloader

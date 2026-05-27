@@ -58,21 +58,25 @@ Without a `GITHUB_TOKEN` the limit is 60 requests/hour. With a token it is 5 000
 
 ## Running tests
 
-```bash
-docker compose run --rm api php vendor/bin/phpunit
-```
-
-Or locally if PHP 8.2+ and Composer are installed:
+Three test suites with increasing scope:
 
 ```bash
-composer install
-php vendor/bin/phpunit
+composer test          # unit tests — fast, no Docker
+make test-integration  # integration tests — starts Docker stack automatically
+make test-e2e          # E2E browser tests — starts Docker stack + Playwright (PHP)
+make test              # all three suites in one go
 ```
+
+Integration and E2E tests use `docker-compose.test.yml` as the stack.
+See [docs/testing.md](docs/testing.md) for full setup instructions and coverage details.
 
 ## CI
 
-GitHub Actions runs on every push:
+Four independent GitHub Actions workflows — each reports a separate status check:
 
-1. **Lint** — PHPStan level 9 static analysis
-2. **Test** — PHPUnit test suite
-3. **Build** — Docker image build + Trivy vulnerability scan (runs only when lint and tests pass)
+| Workflow | Trigger | What it does |
+| --- | --- | --- |
+| `ci.yml` | Every push / PR | PHPStan level 9 + PHPCS → Docker build & Trivy scan |
+| `unit.yml` | Every push / PR | PHPUnit unit tests (~30 s, no Docker) |
+| `integration.yml` | Every push / PR | API integration tests against real MySQL + Redis |
+| `e2e.yml` | Push / PR to `main` | Playwright browser tests |

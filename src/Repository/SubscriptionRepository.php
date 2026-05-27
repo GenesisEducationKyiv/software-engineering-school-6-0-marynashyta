@@ -117,6 +117,13 @@ final class SubscriptionRepository implements SubscriptionRepositoryInterface, S
             ->execute([$tag, $id]);
     }
 
+    public function countActive(): int
+    {
+        $stmt = $this->db->prepare('SELECT COUNT(*) FROM subscriptions WHERE confirmed = 1');
+        $stmt->execute();
+        return (int) $stmt->fetchColumn();
+    }
+
     /** @param array<string, mixed> $row */
     private function hydrate(array $row): Subscription
     {

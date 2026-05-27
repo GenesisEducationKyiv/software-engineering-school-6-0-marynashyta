@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\DTO\SubscribeRequest;
 use App\Exceptions\HttpExceptionInterface;
+use App\Infrastructure\Json;
 use App\Services\SubscriptionServiceInterface;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -117,8 +118,7 @@ final class SubscriptionController
      */
     private function json(Response $res, mixed $data, int $status): Response
     {
-        $payload = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-        $res->getBody()->write($payload);
+        $res->getBody()->write(Json::encode($data));
 
         return $res
             ->withHeader('Content-Type', 'application/json')

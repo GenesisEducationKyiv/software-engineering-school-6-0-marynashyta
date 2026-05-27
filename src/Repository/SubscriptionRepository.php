@@ -119,7 +119,9 @@ final class SubscriptionRepository implements SubscriptionRepositoryInterface, S
 
     public function countActive(): int
     {
-        return (int) $this->db->query('SELECT COUNT(*) FROM subscriptions WHERE confirmed = 1')->fetchColumn();
+        $stmt = $this->db->prepare('SELECT COUNT(*) FROM subscriptions WHERE confirmed = 1');
+        $stmt->execute();
+        return (int) $stmt->fetchColumn();
     }
 
     /** @param array<string, mixed> $row */

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Middleware;
 
-use App\Metrics\MetricsCollector;
+use App\Metrics\MetricsCollectorInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
@@ -12,7 +12,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 final class MetricsMiddleware implements MiddlewareInterface
 {
-    public function __construct(private readonly MetricsCollector $metrics)
+    public function __construct(private readonly MetricsCollectorInterface $metrics)
     {
     }
 

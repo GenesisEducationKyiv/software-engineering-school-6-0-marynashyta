@@ -6,9 +6,9 @@ namespace App\Exceptions;
 
 use RuntimeException;
 
-class RateLimitException extends RuntimeException
+final class RateLimitException extends RuntimeException implements HttpExceptionInterface
 {
-    private int $retryAfter;
+    private readonly int $retryAfter;
 
     public function __construct(int $retryAfter = 60, int $code = 0, ?\Throwable $previous = null)
     {
@@ -18,6 +18,11 @@ class RateLimitException extends RuntimeException
             $code,
             $previous
         );
+    }
+
+    public function getStatusCode(): int
+    {
+        return 429;
     }
 
     public function getRetryAfter(): int

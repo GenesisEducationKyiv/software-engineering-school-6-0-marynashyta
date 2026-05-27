@@ -13,7 +13,7 @@ use Throwable;
  * All operations degrade silently to no-ops when Redis is unavailable,
  * so a Redis outage never affects the main application flow.
  */
-class RedisCache
+final class RedisCache implements CacheInterface
 {
     private bool $connected = false;
 
@@ -69,7 +69,8 @@ class RedisCache
         }
         try {
             $this->client->setex($key, $ttl, $value);
-        } catch (Throwable) {}
+        } catch (Throwable) {
+        }
     }
 
     public function increment(string $key): void
@@ -79,7 +80,8 @@ class RedisCache
         }
         try {
             $this->client->incr($key);
-        } catch (Throwable) {}
+        } catch (Throwable) {
+        }
     }
 
     public function hashIncrement(string $hash, string $field): void
@@ -89,7 +91,8 @@ class RedisCache
         }
         try {
             $this->client->hincrby($hash, $field, 1);
-        } catch (Throwable) {}
+        } catch (Throwable) {
+        }
     }
 
     public function getInt(string $key): int

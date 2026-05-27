@@ -4,29 +4,24 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\DTO\SmtpConfig;
 use App\Services\Templates\EmailTemplates;
 use PHPMailer\PHPMailer\Exception as PHPMailerException;
 use PHPMailer\PHPMailer\PHPMailer;
 
-final class EmailService implements EmailServiceInterface
+final class EmailService implements ConfirmationMailerInterface, NotificationMailerInterface
 {
     private string $appUrl;
 
     public function __construct(
-        private string $host,
-        private int    $port,
-        private string $username,
-        private string $password,
-        private string $fromAddress,
-        private string $fromName,
-        string         $appUrl
-    )
-    {
+        private readonly SmtpConfig $smtp,
+        string $appUrl,
+        private readonly ReleaseUrlBuilderInterface $releaseUrlBuilder,
+    ) {
         $this->appUrl = rtrim($appUrl, '/');
     }
 
     /**
-     *
      * @throws PHPMailerException
      */
     public function sendConfirmation(
@@ -34,9 +29,8 @@ final class EmailService implements EmailServiceInterface
         string $repo,
         string $confirmToken,
         string $unsubscribeToken
-    ): void
-    {
-        $confirmUrl = "{$this->appUrl}/api/confirm/{$confirmToken}";
+    ): void {
+        $confirmUrl     = "{$this->appUrl}/api/confirm/{$confirmToken}";
         $unsubscribeUrl = "{$this->appUrl}/api/unsubscribe/{$unsubscribeToken}";
 
         $this->send(
@@ -47,7 +41,6 @@ final class EmailService implements EmailServiceInterface
     }
 
     /**
-     *
      * @throws PHPMailerException
      */
     public function sendReleaseNotification(
@@ -55,9 +48,8 @@ final class EmailService implements EmailServiceInterface
         string $repo,
         string $tag,
         string $unsubscribeToken
-    ): void
-    {
-        $releaseUrl = "https://github.com/{$repo}/releases/tag/{$tag}";
+    ): void {
+        $releaseUrl     = $this->releaseUrlBuilder->buildReleaseUrl($repo, $tag);
         $unsubscribeUrl = "{$this->appUrl}/api/unsubscribe/{$unsubscribeToken}";
 
         $this->send(
@@ -68,7 +60,6 @@ final class EmailService implements EmailServiceInterface
     }
 
     /**
-     *
      * @throws PHPMailerException
      */
     private function send(string $to, string $subject, string $body): void
@@ -76,28 +67,28 @@ final class EmailService implements EmailServiceInterface
         $mail = new PHPMailer(true);
 
         $mail->isSMTP();
-        $mail->Host = $this->host;
-        $mail->Port = $this->port;
+        $mail->Host = $this->smtp->host;
+        $mail->Port = $this->smtp->port;
 
-        if ($this->username !== '') {
-            $mail->SMTPAuth = true;
-            $mail->SMTPSecure = $this->port === 465
+        if ($this->smtp->username !== '') {
+            $mail->SMTPAuth   = true;
+            $mail->SMTPSecure = $this->smtp->port === 465
                 ? PHPMailer::ENCRYPTION_SMTPS
                 : PHPMailer::ENCRYPTION_STARTTLS;
-            $mail->Username = $this->username;
-            $mail->Password = $this->password;
+            $mail->Username = $this->smtp->username;
+            $mail->Password = $this->smtp->password;
         } else {
-            $mail->SMTPAuth = false;
+            $mail->SMTPAuth   = false;
             $mail->SMTPSecure = '';
         }
 
-        $mail->setFrom($this->fromAddress, $this->fromName);
+        $mail->setFrom($this->smtp->fromAddress, $this->smtp->fromName);
         $mail->addAddress($to);
 
-        $mail->isHTML(true);
+        $mail->isHTML();
         $mail->CharSet = 'UTF-8';
         $mail->Subject = $subject;
-        $mail->Body = $body;
+        $mail->Body    = $body;
         $mail->AltBody = strip_tags(str_replace(['<br>', '<br/>', '<br />'], "\n", $body));
 
         $mail->send();

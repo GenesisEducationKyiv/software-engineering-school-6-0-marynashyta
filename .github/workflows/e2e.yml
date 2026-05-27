@@ -1,0 +1,40 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  e2e:
+    name: E2E Tests (Playwright)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/php-setup
+        with:
+          php-extensions: zip
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+
+      - name: Install Playwright browsers
+        run: vendor/bin/playwright-install --with-deps
+
+      - name: Run E2E tests
+        run: make test-e2e
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report-${{ github.run_id }}
+          path: |
+            tests/E2E/screenshots/
+          if-no-files-found: ignore

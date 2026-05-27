@@ -14,7 +14,9 @@ use Predis\Client as PredisClient;
  */
 final class PredisAdapter implements RedisClientInterface
 {
-    public function __construct(private readonly PredisClient $client) {}
+    public function __construct(private readonly PredisClient $client)
+    {
+    }
 
     public function ping(): mixed
     {

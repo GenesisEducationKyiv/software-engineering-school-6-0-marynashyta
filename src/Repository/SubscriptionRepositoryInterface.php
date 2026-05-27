@@ -27,4 +27,6 @@ interface SubscriptionRepositoryInterface
 
     /** @return list<Subscription> */
     public function findConfirmedByEmail(string $email): array;
+
+    public function countActive(): int;
 }

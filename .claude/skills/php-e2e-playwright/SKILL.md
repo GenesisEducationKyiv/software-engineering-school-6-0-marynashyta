@@ -20,8 +20,8 @@ Uses `playwright-php/playwright` with `PlaywrightTestCaseTrait` inside PHPUnit.
 
 | Topic | File | Load When |
 |-------|------|-----------|
-| docker-compose.e2e.yml, Dockerfile, seed endpoint | `docker.md` | Setting up app infrastructure |
-| Storage state, auth reuse, screenshots on failure, locator guide, CI YAML | `patterns.md` | Advanced test patterns |
+| docker-compose.e2e.yml, Dockerfile, seed endpoint | `.claude/skills/php-e2e-playwright/references/docker.md` | Setting up app infrastructure |
+| Storage state, auth reuse, screenshots on failure, locator guide, CI YAML | `.claude/skills/php-e2e-playwright/references/patterns.md` | Advanced test patterns |
 
 ## Scenario Coverage
 

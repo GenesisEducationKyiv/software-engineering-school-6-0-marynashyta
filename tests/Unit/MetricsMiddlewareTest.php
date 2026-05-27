@@ -20,36 +20,6 @@ final class MetricsMiddlewareTest extends TestCase
     private MetricsCollectorInterface&MockObject $metrics;
     private MetricsMiddleware $middleware;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->metrics    = $this->createMock(MetricsCollectorInterface::class);
-        $this->middleware = new MetricsMiddleware($this->metrics);
-    }
-
-    private function makeRequest(string $method, string $path): ServerRequestInterface
-    {
-        $uri = $this->createMock(UriInterface::class);
-        $uri->method('getPath')->willReturn($path);
-
-        $request = $this->createMock(ServerRequestInterface::class);
-        $request->method('getMethod')->willReturn($method);
-        $request->method('getUri')->willReturn($uri);
-
-        return $request;
-    }
-
-    private function makeHandler(int $status = 200): RequestHandlerInterface
-    {
-        $response = $this->createMock(ResponseInterface::class);
-        $response->method('getStatusCode')->willReturn($status);
-
-        $handler = $this->createMock(RequestHandlerInterface::class);
-        $handler->method('handle')->willReturn($response);
-
-        return $handler;
-    }
-
     // ── Metric recording ──────────────────────────────────────────────────────
 
     #[Test]
@@ -109,5 +79,35 @@ final class MetricsMiddlewareTest extends TestCase
             'unknown path'             => ['/unknown/path',                        'other'],
             'root path'                => ['/',                                    'other'],
         ];
+    }
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->metrics    = $this->createMock(MetricsCollectorInterface::class);
+        $this->middleware = new MetricsMiddleware($this->metrics);
+    }
+
+    private function makeRequest(string $method, string $path): ServerRequestInterface
+    {
+        $uri = $this->createMock(UriInterface::class);
+        $uri->method('getPath')->willReturn($path);
+
+        $request = $this->createMock(ServerRequestInterface::class);
+        $request->method('getMethod')->willReturn($method);
+        $request->method('getUri')->willReturn($uri);
+
+        return $request;
+    }
+
+    private function makeHandler(int $status = 200): RequestHandlerInterface
+    {
+        $response = $this->createMock(ResponseInterface::class);
+        $response->method('getStatusCode')->willReturn($status);
+
+        $handler = $this->createMock(RequestHandlerInterface::class);
+        $handler->method('handle')->willReturn($response);
+
+        return $handler;
     }
 }

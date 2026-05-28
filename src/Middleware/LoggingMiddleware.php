@@ -35,9 +35,9 @@ final class LoggingMiddleware implements MiddlewareInterface
                 'duration_ms' => (int) round((hrtime(true) - $start) / 1_000_000),
             ];
             $level = match (true) {
-                ($status ?? 0) >= 500 => 'error',
-                ($status ?? 0) >= 400 => 'warning',
-                default               => 'info',
+                $status >= 500 => 'error',
+                $status >= 400 => 'warning',
+                default        => 'info',
             };
             $this->logger->log($level, 'http.request', $ctx);
         }

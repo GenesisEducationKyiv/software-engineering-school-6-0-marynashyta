@@ -85,7 +85,10 @@ final class RedisCacheTest extends TestCase
     #[Test]
     public function isConnectedReturnsTrueAfterSuccessfulPing(): void
     {
-        [$cache] = $this->makeConnectedCache();
+        /** @var RedisClientInterface&MockObject $redis */
+        $redis = $this->createMock(RedisClientInterface::class);
+        $redis->expects($this->exactly(2))->method('ping');
+        $cache = new RedisCache($redis);
         $this->assertTrue($cache->isConnected());
     }
 

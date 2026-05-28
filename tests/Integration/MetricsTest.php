@@ -35,6 +35,7 @@ final class MetricsTest extends AbstractApiTestCase
         $this->assertStringContainsString('rna_scanner_cycles_total', $body);
         $this->assertStringContainsString('rna_subscriptions_active', $body);
         $this->assertStringContainsString('rna_redis_connected', $body);
+        $this->assertStringContainsString('rna_http_request_duration_seconds', $body);
     }
 
     #[Test]

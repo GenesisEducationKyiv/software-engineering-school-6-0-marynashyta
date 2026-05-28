@@ -21,4 +21,8 @@ final class NullMetricsCollector implements MetricsCollectorInterface
     public function recordScannerCycle(): void
     {
     }
+
+    public function recordHttpRequestDuration(string $method, string $route, float $durationSeconds): void
+    {
+    }
 }

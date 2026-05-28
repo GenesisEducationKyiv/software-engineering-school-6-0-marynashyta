@@ -6,5 +6,6 @@ namespace App\Scanner;
 
 interface LoggerInterface
 {
-    public function log(string $level, string $message): void;
+    /** @param array<string, mixed> $context */
+    public function log(string $level, string $message, array $context = []): void;
 }

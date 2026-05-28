@@ -95,6 +95,17 @@ final class RedisCache implements CacheInterface
         }
     }
 
+    public function hashIncrementFloat(string $hash, string $field, float $value): void
+    {
+        if (!$this->connected || $this->client === null) {
+            return;
+        }
+        try {
+            $this->client->hincrbyfloat($hash, $field, $value);
+        } catch (Throwable) {
+        }
+    }
+
     public function getInt(string $key): int
     {
         if (!$this->connected || $this->client === null) {
@@ -125,6 +136,15 @@ final class RedisCache implements CacheInterface
 
     public function isConnected(): bool
     {
-        return $this->connected;
+        if (!$this->connected || $this->client === null) {
+            return false;
+        }
+        try {
+            $this->client->ping();
+            return true;
+        } catch (Throwable) {
+            $this->connected = false;
+            return false;
+        }
     }
 }

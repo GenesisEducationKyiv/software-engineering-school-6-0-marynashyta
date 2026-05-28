@@ -82,11 +82,27 @@ final class PrometheusRenderer implements MetricsRendererInterface
             $cumulative = 0;
             foreach (MetricsKeys::HISTOGRAM_BUCKETS as $le) {
                 $cumulative += ($bucketCounts[$le] ?? 0);
-                $lines[] = "rna_http_request_duration_seconds_bucket{method=\"{$method}\",route=\"{$route}\",le=\"{$le}\"} {$cumulative}";
+                $lines[] = sprintf(
+                    'rna_http_request_duration_seconds_bucket{method="%s",route="%s",le="%s"} %d',
+                    $method,
+                    $route,
+                    $le,
+                    $cumulative,
+                );
             }
             $cumulative += ($bucketCounts['+Inf'] ?? 0);
-            $lines[] = "rna_http_request_duration_seconds_bucket{method=\"{$method}\",route=\"{$route}\",le=\"+Inf\"} {$cumulative}";
-            $lines[] = "rna_http_request_duration_seconds_sum{method=\"{$method}\",route=\"{$route}\"} " . sprintf('%.6f', (float) ($sumHash[$key] ?? '0'));
+            $lines[] = sprintf(
+                'rna_http_request_duration_seconds_bucket{method="%s",route="%s",le="+Inf"} %d',
+                $method,
+                $route,
+                $cumulative,
+            );
+            $lines[] = sprintf(
+                'rna_http_request_duration_seconds_sum{method="%s",route="%s"} %.6f',
+                $method,
+                $route,
+                (float) ($sumHash[$key] ?? '0'),
+            );
             $lines[] = "rna_http_request_duration_seconds_count{method=\"{$method}\",route=\"{$route}\"} {$cumulative}";
         }
 

@@ -49,9 +49,10 @@ jobs:
       - name: Validate Prometheus config
         run: |
           docker run --rm \
+            --entrypoint /bin/promtool \
             -v "${{ github.workspace }}/docker/prometheus.yml:/prometheus.yml:ro" \
             prom/prometheus:v2.54.1 \
-            promtool check config /prometheus.yml
+            check config /prometheus.yml
 
   # ── Job 3: Docker build + image scan ───────────────────────────────────────
   # Only runs when lint passes.

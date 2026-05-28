@@ -18,15 +18,18 @@ final class MetricsMiddleware implements MiddlewareInterface
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        $response = $handler->handle($request);
-
-        $this->metrics->recordHttpRequest(
-            $request->getMethod(),
-            $this->normaliseRoute($request->getUri()->getPath()),
-            $response->getStatusCode()
-        );
-
-        return $response;
+        $start  = hrtime(true);
+        $status = 500;
+        try {
+            $response = $handler->handle($request);
+            $status   = $response->getStatusCode();
+            return $response;
+        } finally {
+            $elapsed = (hrtime(true) - $start) / 1_000_000_000;
+            $route   = $this->normaliseRoute($request->getUri()->getPath());
+            $this->metrics->recordHttpRequest($request->getMethod(), $route, $status);
+            $this->metrics->recordHttpRequestDuration($request->getMethod(), $route, $elapsed);
+        }
     }
 
     private function normaliseRoute(string $path): string

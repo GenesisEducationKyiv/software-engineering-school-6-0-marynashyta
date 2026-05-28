@@ -185,6 +185,37 @@ final class RedisCacheTest extends TestCase
     }
 
     #[Test]
+    public function hashIncrementFloatDoesNothingWhenClientIsNull(): void
+    {
+        (new RedisCache(null))->hashIncrementFloat('myhash', 'field', 0.123);
+        $this->addToAssertionCount(1);
+    }
+
+    #[Test]
+    public function hashIncrementFloatCallsHincrbyFloat(): void
+    {
+        [$cache, $redis] = $this->makeConnectedCache();
+
+        $redis->expects($this->once())->method('hincrbyfloat')->with('myhash', 'field', 0.123);
+
+        $cache->hashIncrementFloat('myhash', 'field', 0.123);
+        $this->addToAssertionCount(1);
+    }
+
+    #[Test]
+    public function hashIncrementFloatSilentlyIgnoresRedisException(): void
+    {
+        [$cache, $redis] = $this->makeConnectedCache();
+
+        $redis->expects($this->once())
+            ->method('hincrbyfloat')
+            ->willThrowException(new \RuntimeException('connection lost'));
+
+        $cache->hashIncrementFloat('myhash', 'field', 0.5);
+        $this->addToAssertionCount(1);
+    }
+
+    #[Test]
     public function getReturnsNullOnRedisException(): void
     {
         [$cache, $redis] = $this->makeConnectedCache();

@@ -7,6 +7,7 @@ use App\Controllers\SubscriptionController;
 use App\Infrastructure\Env;
 use App\Middleware\ApiKeyMiddleware;
 use App\Middleware\CorsMiddleware;
+use App\Middleware\LoggingMiddleware;
 use App\Middleware\MetricsMiddleware;
 use Slim\Factory\AppFactory;
 
@@ -33,6 +34,7 @@ $app->addErrorMiddleware(
 $app->add(MetricsMiddleware::class);
 $app->add(ApiKeyMiddleware::class);
 $app->add(CorsMiddleware::class);
+$app->add(LoggingMiddleware::class);
 
 $app->get('/', fn ($req, $res) => $res->withHeader('Location', '/subscribe.html')->withStatus(302));
 $app->post('/api/subscribe', [SubscriptionController::class, 'subscribe']);

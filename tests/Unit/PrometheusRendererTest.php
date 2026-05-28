@@ -41,6 +41,7 @@ final class PrometheusRendererTest extends TestCase
         self::assertStringContainsString('rna_scanner_cycles_total', $output);
         self::assertStringContainsString('rna_subscriptions_active', $output);
         self::assertStringContainsString('rna_redis_connected', $output);
+        self::assertStringContainsString('rna_http_request_duration_seconds', $output);
     }
 
     // ── HTTP request metrics ──────────────────────────────────────────────────
@@ -50,8 +51,10 @@ final class PrometheusRendererTest extends TestCase
     {
         $this->cache->method('getAllHash')
             ->willReturnMap([
-                ['rna:http_requests',    ['GET:/api/subscriptions:200' => '5']],
-                ['rna:github_api_calls', []],
+                ['rna:http_requests',      ['GET:/api/subscriptions:200' => '5']],
+                ['rna:github_api_calls',   []],
+                ['rna:http_duration_hist', []],
+                ['rna:http_duration_sum',  []],
             ]);
         $this->stubIntMetrics();
 
@@ -80,8 +83,10 @@ final class PrometheusRendererTest extends TestCase
     {
         $this->cache->method('getAllHash')
             ->willReturnMap([
-                ['rna:http_requests',    []],
-                ['rna:github_api_calls', ['validate_repo:miss' => '3']],
+                ['rna:http_requests',      []],
+                ['rna:github_api_calls',   ['validate_repo:miss' => '3']],
+                ['rna:http_duration_hist', []],
+                ['rna:http_duration_sum',  []],
             ]);
         $this->stubIntMetrics();
 
@@ -199,6 +204,61 @@ final class PrometheusRendererTest extends TestCase
         $output = $this->renderer(counter: $counter)->render();
 
         self::assertStringContainsString('rna_subscriptions_active 0', $output);
+    }
+
+    // ── Duration histogram ────────────────────────────────────────────────────
+
+    #[Test]
+    public function itRendersHistogramBucketsWithCumulativeCounts(): void
+    {
+        $this->cache->method('getAllHash')
+            ->willReturnMap([
+                ['rna:http_requests',      []],
+                ['rna:github_api_calls',   []],
+                ['rna:http_duration_hist', [
+                    'GET:/api/subscriptions:0.1' => '1',
+                    'GET:/api/subscriptions:0.5' => '1',
+                ]],
+                ['rna:http_duration_sum',  ['GET:/api/subscriptions' => '0.58']],
+            ]);
+        $this->stubIntMetrics();
+
+        $output = $this->renderer()->render();
+
+        self::assertStringContainsString(
+            'rna_http_request_duration_seconds_bucket{method="GET",route="/api/subscriptions",le="0.005"} 0',
+            $output,
+        );
+        self::assertStringContainsString(
+            'rna_http_request_duration_seconds_bucket{method="GET",route="/api/subscriptions",le="0.1"} 1',
+            $output,
+        );
+        self::assertStringContainsString(
+            'rna_http_request_duration_seconds_bucket{method="GET",route="/api/subscriptions",le="0.5"} 2',
+            $output,
+        );
+        self::assertStringContainsString(
+            'rna_http_request_duration_seconds_bucket{method="GET",route="/api/subscriptions",le="+Inf"} 2',
+            $output,
+        );
+        self::assertStringContainsString(
+            'rna_http_request_duration_seconds_sum{method="GET",route="/api/subscriptions"} 0.58',
+            $output,
+        );
+        self::assertStringContainsString(
+            'rna_http_request_duration_seconds_count{method="GET",route="/api/subscriptions"} 2',
+            $output,
+        );
+    }
+
+    #[Test]
+    public function itEmitsHistogramTypeHeaderEvenWithNoData(): void
+    {
+        $this->stubEmptyCache();
+
+        $output = $this->renderer()->render();
+
+        self::assertStringContainsString('# TYPE rna_http_request_duration_seconds histogram', $output);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

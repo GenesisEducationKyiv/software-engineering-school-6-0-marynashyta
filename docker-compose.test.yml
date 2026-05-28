@@ -19,6 +19,8 @@ services:
       APP_URL: http://localhost:8080
       API_KEY: ""
       APP_DEBUG: "false"
+      LOG_PATH: php://stderr
+      LOG_CHANNEL: api
     depends_on:
       db:
         condition: service_healthy

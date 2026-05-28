@@ -17,8 +17,8 @@ use App\Middleware\ApiKeyMiddleware;
 use App\Repository\SubscriptionRepository;
 use App\Repository\SubscriptionRepositoryInterface;
 use App\Repository\SubscriptionScanRepositoryInterface;
-use App\Scanner\EchoLogger;
 use App\Scanner\LoggerInterface;
+use App\Scanner\MonologLogger;
 use App\Services\ConfirmationMailerInterface;
 use App\Services\EmailService;
 use App\Services\GitHubReleaseUrlBuilder;
@@ -32,8 +32,14 @@ use App\Services\TokenGenerator;
 use App\Services\TokenGeneratorInterface;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
+use Monolog\Formatter\JsonFormatter;
+use Monolog\Handler\StreamHandler;
+use Monolog\Level;
+use Monolog\Logger;
+use Monolog\Processor\UidProcessor;
 use PDO;
 use Psr\Container\ContainerInterface;
+use Psr\Log\LoggerInterface as PsrLoggerInterface;
 
 return [
     PDO::class => fn (): PDO => Connection::getInstance(),
@@ -97,7 +103,15 @@ return [
     ActiveSubscriptionCounterInterface::class => \DI\get(DatabaseSubscriptionCounter::class),
     MetricsRendererInterface::class           => \DI\get(PrometheusRenderer::class),
 
-    LoggerInterface::class => \DI\get(EchoLogger::class),
+    PsrLoggerInterface::class => function (): PsrLoggerInterface {
+        $handler = new StreamHandler(Env::string('LOG_PATH', 'php://stderr'), Level::fromName(Env::string('LOG_LEVEL', 'warning')));
+        $handler->setFormatter(new JsonFormatter());
+        $logger = new Logger(Env::string('LOG_CHANNEL', 'app'));
+        $logger->pushHandler($handler);
+        $logger->pushProcessor(new UidProcessor());
+        return $logger;
+    },
+    LoggerInterface::class    => \DI\get(MonologLogger::class),
 
     ApiKeyMiddleware::class => fn (): ApiKeyMiddleware => new ApiKeyMiddleware(Env::string('API_KEY')),
 ];

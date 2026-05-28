@@ -21,20 +21,40 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The API is available at `http://localhost:8080`.  
-The Mailpit email UI is at `http://localhost:8025`.
+| Service                 | URL                          |
+| ----------------------- | ---------------------------- |
+| API                     | <http://localhost:8080>      |
+| Swagger UI              | <http://localhost:8090>      |
+| Mailpit (email preview) | <http://localhost:8025>      |
+| Prometheus              | <http://localhost:9090>      |
+| Grafana                 | <http://localhost:3000>      |
+
+### ELK log aggregation (optional)
+
+Start the ELK stack on top of the base stack:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.elk.yml up -d
+```
+
+| Service       | URL                     |
+| ------------- | ----------------------- |
+| Kibana        | <http://localhost:5601> |
+| Elasticsearch | <http://localhost:9200> |
+
+Filebeat ships logs from both the `api` and `scanner` containers into Elasticsearch under the index pattern `release-api-logs-*`. If the Kibana data view is missing after first start: **Stack Management → Data Views → Create data view** → index pattern `release-api-logs-*`, time field `@timestamp`.
 
 ## API reference
 
 See [swagger.yaml](swagger.yaml) for the full contract. Quick summary:
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/subscribe` | Subscribe an email to a repository |
-| `GET` | `/api/confirm/{token}` | Confirm a pending subscription |
-| `GET` | `/api/unsubscribe/{token}` | Unsubscribe |
-| `GET` | `/api/subscriptions?email=` | List confirmed subscriptions for an email |
-| `GET` | `/metrics` | Prometheus metrics (always public) |
+| Method   | Path                        | Description                               |
+| -------- | --------------------------- | ----------------------------------------- |
+| `POST`   | `/api/subscribe`            | Subscribe an email to a repository        |
+| `GET`    | `/api/confirm/{token}`      | Confirm a pending subscription            |
+| `GET`    | `/api/unsubscribe/{token}`  | Unsubscribe                               |
+| `GET`    | `/api/subscriptions?email=` | List confirmed subscriptions for an email |
+| `GET`    | `/metrics`                  | Prometheus metrics (always public)        |
 
 ### Subscribe
 

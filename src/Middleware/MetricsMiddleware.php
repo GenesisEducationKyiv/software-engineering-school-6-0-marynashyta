@@ -25,7 +25,7 @@ final class MetricsMiddleware implements MiddlewareInterface
             $status   = $response->getStatusCode();
             return $response;
         } finally {
-            $elapsed = (hrtime(true) - $start) / 1_000_000_000;
+            $elapsed = (hrtime(true) - $start) / 1_000_000;
             $route   = $this->normaliseRoute($request->getUri()->getPath());
             $this->metrics->recordHttpRequest($request->getMethod(), $route, $status);
             $this->metrics->recordHttpRequestDuration($request->getMethod(), $route, $elapsed);

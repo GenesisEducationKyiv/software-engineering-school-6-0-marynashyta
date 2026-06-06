@@ -1,0 +1,24 @@
+# HELP rna_http_requests_total Total number of HTTP requests processed
+# TYPE rna_http_requests_total counter
+
+# HELP rna_github_api_calls_total Total GitHub API calls made
+# TYPE rna_github_api_calls_total counter
+
+# HELP rna_notifications_sent_total Total release notification emails sent by the scanner
+# TYPE rna_notifications_sent_total counter
+rna_notifications_sent_total 42
+
+# HELP rna_scanner_cycles_total Total background scanner cycles completed
+# TYPE rna_scanner_cycles_total counter
+rna_scanner_cycles_total 0
+
+# HELP rna_subscriptions_active Current number of active (confirmed) subscriptions
+# TYPE rna_subscriptions_active gauge
+rna_subscriptions_active 0
+
+# HELP rna_redis_connected Whether the Redis connection is healthy (1=yes, 0=no)
+# TYPE rna_redis_connected gauge
+rna_redis_connected 0
+
+# HELP rna_http_request_duration_ms HTTP request latency histogram in milliseconds
+# TYPE rna_http_request_duration_ms histogram

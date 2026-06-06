@@ -60,8 +60,8 @@ final class PrometheusRenderer implements MetricsRendererInterface
         $lines[] = 'rna_redis_connected ' . ($this->cache->isConnected() ? 1 : 0);
 
         $lines[] = '';
-        $lines[] = '# HELP rna_http_request_duration_seconds HTTP request latency histogram';
-        $lines[] = '# TYPE rna_http_request_duration_seconds histogram';
+        $lines[] = '# HELP rna_http_request_duration_ms HTTP request latency histogram in milliseconds';
+        $lines[] = '# TYPE rna_http_request_duration_ms histogram';
 
         $histHash = $this->cache->getAllHash(MetricsKeys::HTTP_DURATION_HIST);
         $sumHash  = $this->cache->getAllHash(MetricsKeys::HTTP_DURATION_SUM);
@@ -81,29 +81,29 @@ final class PrometheusRenderer implements MetricsRendererInterface
             $route  = $parts[1] ?? '';
             $cumulative = 0;
             foreach (MetricsKeys::HISTOGRAM_BUCKETS as $le) {
-                $cumulative += ($bucketCounts[$le] ?? 0);
+                $cumulative += array_key_exists($le, $bucketCounts) ? $bucketCounts[$le] : 0;
                 $lines[] = sprintf(
-                    'rna_http_request_duration_seconds_bucket{method="%s",route="%s",le="%s"} %d',
+                    'rna_http_request_duration_ms_bucket{method="%s",route="%s",le="%s"} %d',
                     $method,
                     $route,
                     $le,
                     $cumulative,
                 );
             }
-            $cumulative += ($bucketCounts['+Inf'] ?? 0);
+            $cumulative += array_key_exists('+Inf', $bucketCounts) ? $bucketCounts['+Inf'] : 0;
             $lines[] = sprintf(
-                'rna_http_request_duration_seconds_bucket{method="%s",route="%s",le="+Inf"} %d',
+                'rna_http_request_duration_ms_bucket{method="%s",route="%s",le="+Inf"} %d',
                 $method,
                 $route,
                 $cumulative,
             );
             $lines[] = sprintf(
-                'rna_http_request_duration_seconds_sum{method="%s",route="%s"} %.6f',
+                'rna_http_request_duration_ms_sum{method="%s",route="%s"} %.3f',
                 $method,
                 $route,
                 (float) ($sumHash[$key] ?? '0'),
             );
-            $lines[] = "rna_http_request_duration_seconds_count{method=\"{$method}\",route=\"{$route}\"} {$cumulative}";
+            $lines[] = "rna_http_request_duration_ms_count{method=\"{$method}\",route=\"{$route}\"} {$cumulative}";
         }
 
         $lines[] = '';

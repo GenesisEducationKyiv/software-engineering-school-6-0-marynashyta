@@ -34,18 +34,18 @@ final class MetricsCollector implements MetricsCollectorInterface
         $this->cache->increment(MetricsKeys::SCANNER);
     }
 
-    public function recordHttpRequestDuration(string $method, string $route, float $durationSeconds): void
+    public function recordHttpRequestDuration(string $method, string $route, float $durationMs): void
     {
         $field = "{$method}:{$route}";
 
         $le = '+Inf';
         foreach (MetricsKeys::HISTOGRAM_BUCKETS as $bucket) {
-            if ($durationSeconds <= (float) $bucket) {
+            if ($durationMs <= (float) $bucket) {
                 $le = $bucket;
                 break;
             }
         }
         $this->cache->hashIncrement(MetricsKeys::HTTP_DURATION_HIST, "{$field}:{$le}");
-        $this->cache->hashIncrementFloat(MetricsKeys::HTTP_DURATION_SUM, $field, $durationSeconds);
+        $this->cache->hashIncrementFloat(MetricsKeys::HTTP_DURATION_SUM, $field, $durationMs);
     }
 }

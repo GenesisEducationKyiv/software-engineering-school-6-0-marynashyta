@@ -14,5 +14,5 @@ interface MetricsCollectorInterface
 
     public function recordScannerCycle(): void;
 
-    public function recordHttpRequestDuration(string $method, string $route, float $durationSeconds): void;
+    public function recordHttpRequestDuration(string $method, string $route, float $durationMs): void;
 }

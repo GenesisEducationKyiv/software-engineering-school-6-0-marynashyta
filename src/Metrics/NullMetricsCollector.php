@@ -22,7 +22,7 @@ final class NullMetricsCollector implements MetricsCollectorInterface
     {
     }
 
-    public function recordHttpRequestDuration(string $method, string $route, float $durationSeconds): void
+    public function recordHttpRequestDuration(string $method, string $route, float $durationMs): void
     {
     }
 }

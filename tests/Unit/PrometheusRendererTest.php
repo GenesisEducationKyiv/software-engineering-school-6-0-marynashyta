@@ -21,33 +21,27 @@ final class PrometheusRendererTest extends TestCase
         $this->cache = $this->createMock(CacheInterface::class);
     }
 
-    private function renderer(?ActiveSubscriptionCounterInterface $counter = null): PrometheusRenderer
-    {
-        return new PrometheusRenderer($this->cache, $counter);
-    }
-
-    // ── Section headers ───────────────────────────────────────────────────────
-
     #[Test]
-    public function itContainsAllExpectedMetricHelpLines(): void
+    public function itRendersAllMetricsAtZeroWhenCacheIsEmpty(): void
     {
         $this->stubEmptyCache();
 
-        $output = $this->renderer()->render();
-
-        self::assertStringContainsString('rna_http_requests_total', $output);
-        self::assertStringContainsString('rna_github_api_calls_total', $output);
-        self::assertStringContainsString('rna_notifications_sent_total', $output);
-        self::assertStringContainsString('rna_scanner_cycles_total', $output);
-        self::assertStringContainsString('rna_subscriptions_active', $output);
-        self::assertStringContainsString('rna_redis_connected', $output);
-        self::assertStringContainsString('rna_http_request_duration_seconds', $output);
+        self::assertSame($this->fixture('empty'), $this->renderer()->render());
     }
 
-    // ── HTTP request metrics ──────────────────────────────────────────────────
+    #[Test]
+    public function itRendersZeroActiveSubscriptionsWhenCounterThrows(): void
+    {
+        $this->stubEmptyCache();
+
+        $counter = $this->createMock(ActiveSubscriptionCounterInterface::class);
+        $counter->method('countActive')->willThrowException(new \RuntimeException('DB error'));
+
+        self::assertSame($this->fixture('empty'), $this->renderer($counter)->render());
+    }
 
     #[Test]
-    public function itRendersHttpRequestCounterWithCorrectLabels(): void
+    public function itRendersHttpRequestCounter(): void
     {
         $this->cache->method('getAllHash')
             ->willReturnMap([
@@ -58,28 +52,11 @@ final class PrometheusRendererTest extends TestCase
             ]);
         $this->stubIntMetrics();
 
-        $output = $this->renderer()->render();
-
-        self::assertStringContainsString(
-            'rna_http_requests_total{method="GET",route="/api/subscriptions",status="200"} 5',
-            $output,
-        );
+        self::assertSame($this->fixture('http_request'), $this->renderer()->render());
     }
 
     #[Test]
-    public function itRendersNoHttpCounterLinesWhenHashIsEmpty(): void
-    {
-        $this->stubEmptyCache();
-
-        $output = $this->renderer()->render();
-
-        self::assertStringNotContainsString('rna_http_requests_total{', $output);
-    }
-
-    // ── GitHub API call metrics ───────────────────────────────────────────────
-
-    #[Test]
-    public function itRendersGitHubApiCallCounterWithCorrectLabels(): void
+    public function itRendersGitHubApiCallCounter(): void
     {
         $this->cache->method('getAllHash')
             ->willReturnMap([
@@ -90,15 +67,8 @@ final class PrometheusRendererTest extends TestCase
             ]);
         $this->stubIntMetrics();
 
-        $output = $this->renderer()->render();
-
-        self::assertStringContainsString(
-            'rna_github_api_calls_total{endpoint="validate_repo",cache="miss"} 3',
-            $output,
-        );
+        self::assertSame($this->fixture('github_api_call'), $this->renderer()->render());
     }
-
-    // ── Scalar counters ───────────────────────────────────────────────────────
 
     #[Test]
     public function itRendersNotificationCount(): void
@@ -111,19 +81,7 @@ final class PrometheusRendererTest extends TestCase
             ]);
         $this->cache->method('isConnected')->willReturn(false);
 
-        $output = $this->renderer()->render();
-
-        self::assertStringContainsString('rna_notifications_sent_total 42', $output);
-    }
-
-    #[Test]
-    public function itRendersZeroNotificationCountWhenNoneSent(): void
-    {
-        $this->stubEmptyCache();
-
-        $output = $this->renderer()->render();
-
-        self::assertStringContainsString('rna_notifications_sent_total 0', $output);
+        self::assertSame($this->fixture('notifications'), $this->renderer()->render());
     }
 
     #[Test]
@@ -137,12 +95,8 @@ final class PrometheusRendererTest extends TestCase
             ]);
         $this->cache->method('isConnected')->willReturn(false);
 
-        $output = $this->renderer()->render();
-
-        self::assertStringContainsString('rna_scanner_cycles_total 7', $output);
+        self::assertSame($this->fixture('scanner_cycles'), $this->renderer()->render());
     }
-
-    // ── Redis connection ──────────────────────────────────────────────────────
 
     #[Test]
     public function itRendersOneWhenRedisIsConnected(): void
@@ -151,31 +105,7 @@ final class PrometheusRendererTest extends TestCase
         $this->cache->method('getInt')->willReturn(0);
         $this->cache->method('isConnected')->willReturn(true);
 
-        $output = $this->renderer()->render();
-
-        self::assertStringContainsString('rna_redis_connected 1', $output);
-    }
-
-    #[Test]
-    public function itRendersZeroWhenRedisIsDisconnected(): void
-    {
-        $this->stubEmptyCache();
-
-        $output = $this->renderer()->render();
-
-        self::assertStringContainsString('rna_redis_connected 0', $output);
-    }
-
-    // ── Active subscriptions ──────────────────────────────────────────────────
-
-    #[Test]
-    public function itRendersZeroActiveSubscriptionsWhenCounterIsNull(): void
-    {
-        $this->stubEmptyCache();
-
-        $output = $this->renderer(counter: null)->render();
-
-        self::assertStringContainsString('rna_subscriptions_active 0', $output);
+        self::assertSame($this->fixture('redis_connected'), $this->renderer()->render());
     }
 
     #[Test]
@@ -183,30 +113,11 @@ final class PrometheusRendererTest extends TestCase
     {
         $this->stubEmptyCache();
 
-        /** @var ActiveSubscriptionCounterInterface&MockObject $counter */
         $counter = $this->createMock(ActiveSubscriptionCounterInterface::class);
         $counter->method('countActive')->willReturn(13);
 
-        $output = $this->renderer(counter: $counter)->render();
-
-        self::assertStringContainsString('rna_subscriptions_active 13', $output);
+        self::assertSame($this->fixture('active_subscriptions'), $this->renderer($counter)->render());
     }
-
-    #[Test]
-    public function itRendersZeroActiveSubscriptionsWhenCounterThrows(): void
-    {
-        $this->stubEmptyCache();
-
-        /** @var ActiveSubscriptionCounterInterface&MockObject $counter */
-        $counter = $this->createMock(ActiveSubscriptionCounterInterface::class);
-        $counter->method('countActive')->willThrowException(new \RuntimeException('DB error'));
-
-        $output = $this->renderer(counter: $counter)->render();
-
-        self::assertStringContainsString('rna_subscriptions_active 0', $output);
-    }
-
-    // ── Duration histogram ────────────────────────────────────────────────────
 
     #[Test]
     public function itRendersHistogramBucketsWithCumulativeCounts(): void
@@ -216,52 +127,32 @@ final class PrometheusRendererTest extends TestCase
                 ['rna:http_requests',      []],
                 ['rna:github_api_calls',   []],
                 ['rna:http_duration_hist', [
-                    'GET:/api/subscriptions:0.1' => '1',
-                    'GET:/api/subscriptions:0.5' => '1',
+                    'GET:/api/subscriptions:100' => '1',
+                    'GET:/api/subscriptions:500' => '1',
                 ]],
-                ['rna:http_duration_sum',  ['GET:/api/subscriptions' => '0.58']],
+                ['rna:http_duration_sum',  ['GET:/api/subscriptions' => '600']],
             ]);
         $this->stubIntMetrics();
 
-        $output = $this->renderer()->render();
-
-        self::assertStringContainsString(
-            'rna_http_request_duration_seconds_bucket{method="GET",route="/api/subscriptions",le="0.005"} 0',
-            $output,
-        );
-        self::assertStringContainsString(
-            'rna_http_request_duration_seconds_bucket{method="GET",route="/api/subscriptions",le="0.1"} 1',
-            $output,
-        );
-        self::assertStringContainsString(
-            'rna_http_request_duration_seconds_bucket{method="GET",route="/api/subscriptions",le="0.5"} 2',
-            $output,
-        );
-        self::assertStringContainsString(
-            'rna_http_request_duration_seconds_bucket{method="GET",route="/api/subscriptions",le="+Inf"} 2',
-            $output,
-        );
-        self::assertStringContainsString(
-            'rna_http_request_duration_seconds_sum{method="GET",route="/api/subscriptions"} 0.58',
-            $output,
-        );
-        self::assertStringContainsString(
-            'rna_http_request_duration_seconds_count{method="GET",route="/api/subscriptions"} 2',
-            $output,
-        );
-    }
-
-    #[Test]
-    public function itEmitsHistogramTypeHeaderEvenWithNoData(): void
-    {
-        $this->stubEmptyCache();
-
-        $output = $this->renderer()->render();
-
-        self::assertStringContainsString('# TYPE rna_http_request_duration_seconds histogram', $output);
+        self::assertSame($this->fixture('histogram'), $this->renderer()->render());
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private function renderer(?ActiveSubscriptionCounterInterface $counter = null): PrometheusRenderer
+    {
+        return new PrometheusRenderer($this->cache, $counter);
+    }
+
+    private function fixture(string $name): string
+    {
+        $path    = __DIR__ . '/fixtures/prometheus/' . $name . '.txt';
+        $content = file_get_contents($path);
+        if ($content === false) {
+            throw new \RuntimeException("Fixture not found: {$path}");
+        }
+        return $content;
+    }
 
     private function stubEmptyAllHash(): void
     {

@@ -345,19 +345,19 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "rna-prometheus" },
-          "expr": "histogram_quantile(0.50, sum by(le)(rate(rna_http_request_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.50, sum by(le)(rate(rna_http_request_duration_ms_bucket[5m])))",
           "legendFormat": "P50",
           "refId": "A"
         },
         {
           "datasource": { "type": "prometheus", "uid": "rna-prometheus" },
-          "expr": "histogram_quantile(0.95, sum by(le)(rate(rna_http_request_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.95, sum by(le)(rate(rna_http_request_duration_ms_bucket[5m])))",
           "legendFormat": "P95",
           "refId": "B"
         },
         {
           "datasource": { "type": "prometheus", "uid": "rna-prometheus" },
-          "expr": "histogram_quantile(0.99, sum by(le)(rate(rna_http_request_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.99, sum by(le)(rate(rna_http_request_duration_ms_bucket[5m])))",
           "legendFormat": "P99",
           "refId": "C"
         }

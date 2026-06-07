@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use App\DTO\SubscribeRequest;
-use App\DTO\Subscription;
-use App\Exceptions\AlreadySubscribedException;
-use App\Exceptions\TokenNotFoundException;
-use App\Exceptions\ValidationException;
-use App\Repository\SubscriptionRepositoryInterface;
-use App\Services\ConfirmationMailerInterface;
-use App\Services\GitHubServiceInterface;
-use App\Services\SubscriptionService;
-use App\Services\TokenGenerator;
+use App\Modules\Notification\Domain\ConfirmationMailerInterface;
+use App\Modules\Subscription\Application\SubscribeRequest;
+use App\Modules\Subscription\Application\SubscriptionService;
+use App\Modules\Subscription\Application\TokenGenerator;
+use App\Modules\Subscription\Domain\Exception\AlreadySubscribedException;
+use App\Modules\Subscription\Domain\Exception\TokenNotFoundException;
+use App\Modules\Subscription\Domain\Exception\ValidationException;
+use App\Modules\Subscription\Domain\Subscription;
+use App\Modules\Subscription\Domain\SubscriptionRepositoryInterface;
+use App\Modules\GitHub\Domain\GitHubServiceInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;

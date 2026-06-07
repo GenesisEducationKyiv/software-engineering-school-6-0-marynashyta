@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use App\Cache\RedisCache;
-use App\Cache\RedisClientInterface;
+use App\SharedKernel\Infrastructure\Cache\RedisCache;
+use App\SharedKernel\Infrastructure\Cache\RedisClientInterface;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;

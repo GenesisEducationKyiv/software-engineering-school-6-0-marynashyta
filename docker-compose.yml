@@ -1,4 +1,24 @@
 services:
+  notification:
+    build: ./notification-service
+    env_file: .env
+    environment:
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      MAIL_FROM_ADDRESS: noreply@releases-api.app
+      MAIL_FROM_NAME: "Release Notifications"
+      APP_URL: http://localhost:8080
+    depends_on:
+      mailpit:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-so", "/dev/null", "http://localhost/health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    restart: unless-stopped
+
   api:
     build: .
     ports:
@@ -15,10 +35,13 @@ services:
       APP_URL: http://localhost:8080
       MAIL_FROM_ADDRESS: noreply@releases-api.app
       MAIL_FROM_NAME: "Release Notifications"
+      NOTIFICATION_SERVICE_URL: http://notification:80
     depends_on:
       db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      notification:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-so", "/dev/null", "http://localhost/"]
@@ -44,11 +67,21 @@ services:
       SCANNER_INTERVAL: 300
       MAIL_FROM_ADDRESS: noreply@releases-api.app
       MAIL_FROM_NAME: "Release Notifications"
+      NOTIFICATION_SERVICE_URL: http://notification:80
+      # NOTIFICATION_DRIVER=http  — set to route emails through the notification service
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+      notification:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f scanner.php > /dev/null"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
     restart: unless-stopped
 
   db:
@@ -93,6 +126,16 @@ services:
       SWAGGER_JSON: /spec/swagger.yaml
     volumes:
       - ./swagger.yaml:/spec/swagger.yaml:ro
+    restart: unless-stopped
+
+  swagger-notification:
+    image: swaggerapi/swagger-ui
+    ports:
+      - "8091:8080"
+    environment:
+      SWAGGER_JSON: /spec/openapi.yaml
+    volumes:
+      - ./notification-service/openapi.yaml:/spec/openapi.yaml:ro
     restart: unless-stopped
 
   prometheus:

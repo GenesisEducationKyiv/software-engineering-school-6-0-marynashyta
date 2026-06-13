@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-use App\Controllers\MetricsController;
-use App\Controllers\SubscriptionController;
-use App\Infrastructure\Env;
-use App\Middleware\ApiKeyMiddleware;
-use App\Middleware\CorsMiddleware;
-use App\Middleware\LoggingMiddleware;
-use App\Middleware\MetricsMiddleware;
+use App\Bootstrap\Middleware\ApiKeyMiddleware;
+use App\Bootstrap\Middleware\CorsMiddleware;
+use App\Bootstrap\Middleware\LoggingMiddleware;
+use App\Modules\Observability\Infrastructure\Http\MetricsController;
+use App\Modules\Observability\Infrastructure\Http\MetricsMiddleware;
+use App\Modules\Subscription\Infrastructure\Http\SubscriptionController;
+use App\SharedKernel\Infrastructure\Env;
 use Slim\Factory\AppFactory;
 
 require_once __DIR__ . '/../vendor/autoload.php';

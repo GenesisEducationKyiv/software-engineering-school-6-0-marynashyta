@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use App\Cache\CacheInterface;
-use App\Metrics\ActiveSubscriptionCounterInterface;
-use App\Metrics\PrometheusRenderer;
+use App\Modules\Observability\Domain\ActiveSubscriptionCounterInterface;
+use App\Modules\Observability\Infrastructure\PrometheusRenderer;
+use App\SharedKernel\Infrastructure\Cache\CacheInterface;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;

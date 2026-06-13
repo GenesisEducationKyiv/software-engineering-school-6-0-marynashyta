@@ -1,0 +1,7 @@
+.env
+vendor/
+tests/
+*.md
+.git/
+phpstan.neon
+phpunit.xml

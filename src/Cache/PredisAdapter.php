@@ -43,6 +43,11 @@ final class PredisAdapter implements RedisClientInterface
         return $this->client->hincrby($key, $field, $increment);
     }
 
+    public function hincrbyfloat(string $key, string $field, float $value): mixed
+    {
+        return $this->client->hincrbyfloat($key, $field, $value);
+    }
+
     /** @return array<string, string>|null */
     public function hgetall(string $key): array|null
     {

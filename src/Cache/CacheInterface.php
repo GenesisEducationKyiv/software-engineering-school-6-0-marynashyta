@@ -14,6 +14,8 @@ interface CacheInterface
 
     public function hashIncrement(string $hash, string $field): void;
 
+    public function hashIncrementFloat(string $hash, string $field, float $value): void;
+
     public function getInt(string $key): int;
 
     /** @return array<string, string> */

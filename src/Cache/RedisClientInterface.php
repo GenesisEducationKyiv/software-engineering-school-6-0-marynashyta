@@ -22,6 +22,8 @@ interface RedisClientInterface
 
     public function hincrby(string $key, string $field, int $increment): mixed;
 
+    public function hincrbyfloat(string $key, string $field, float $value): mixed;
+
     /** @return array<string, string>|null */
     public function hgetall(string $key): array|null;
 }

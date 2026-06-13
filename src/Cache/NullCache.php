@@ -23,6 +23,10 @@ final class NullCache implements CacheInterface
     {
     }
 
+    public function hashIncrementFloat(string $hash, string $field, float $value): void
+    {
+    }
+
     public function getInt(string $key): int
     {
         return 0;

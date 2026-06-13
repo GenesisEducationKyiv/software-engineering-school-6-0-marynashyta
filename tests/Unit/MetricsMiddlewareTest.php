@@ -40,6 +40,7 @@ final class MetricsMiddlewareTest extends TestCase
     public function itReturnsTheHandlerResponse(): void
     {
         $this->metrics->method('recordHttpRequest');
+        $this->metrics->method('recordHttpRequestDuration');
 
         $result = $this->middleware->process(
             $this->makeRequest('GET', '/metrics'),
@@ -47,6 +48,43 @@ final class MetricsMiddlewareTest extends TestCase
         );
 
         self::assertSame(200, $result->getStatusCode());
+    }
+
+    #[Test]
+    public function itRecordsHttpRequestDuration(): void
+    {
+        $this->metrics->method('recordHttpRequest');
+        $this->metrics
+            ->expects(self::once())
+            ->method('recordHttpRequestDuration')
+            ->with('GET', '/api/subscriptions', self::callback(
+                fn(float $d): bool => $d >= 0.0
+            ));
+
+        $this->middleware->process(
+            $this->makeRequest('GET', '/api/subscriptions'),
+            $this->makeHandler(200),
+        );
+    }
+
+    #[Test]
+    public function itRecordsStatus500AndRethrowsWhenHandlerThrows(): void
+    {
+        $this->metrics
+            ->expects(self::once())
+            ->method('recordHttpRequest')
+            ->with('GET', '/api/subscriptions', 500);
+        $this->metrics->method('recordHttpRequestDuration');
+
+        $handler = $this->createMock(RequestHandlerInterface::class);
+        $handler->method('handle')->willThrowException(new \RuntimeException('boom'));
+
+        $this->expectException(\RuntimeException::class);
+
+        $this->middleware->process(
+            $this->makeRequest('GET', '/api/subscriptions'),
+            $handler,
+        );
     }
 
     // ── Route normalisation ───────────────────────────────────────────────────

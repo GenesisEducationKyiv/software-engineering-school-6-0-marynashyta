@@ -23,8 +23,9 @@ final class RedisCache implements CacheInterface
             try {
                 $this->client->ping();
                 $this->connected = true;
-            } catch (Throwable) {
+            } catch (Throwable $e) {
                 $this->connected = false;
+                error_log('[RedisCache] Ping failed: ' . $e->getMessage());
             }
         }
     }
@@ -57,7 +58,8 @@ final class RedisCache implements CacheInterface
         try {
             $value = $this->client->get($key);
             return is_string($value) ? $value : null;
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            error_log('[RedisCache] get failed: ' . $e->getMessage());
             return null;
         }
     }
@@ -69,7 +71,8 @@ final class RedisCache implements CacheInterface
         }
         try {
             $this->client->setex($key, $ttl, $value);
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            error_log('[RedisCache] set failed: ' . $e->getMessage());
         }
     }
 
@@ -80,7 +83,8 @@ final class RedisCache implements CacheInterface
         }
         try {
             $this->client->incr($key);
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            error_log('[RedisCache] increment failed: ' . $e->getMessage());
         }
     }
 
@@ -91,7 +95,20 @@ final class RedisCache implements CacheInterface
         }
         try {
             $this->client->hincrby($hash, $field, 1);
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            error_log('[RedisCache] hashIncrement failed: ' . $e->getMessage());
+        }
+    }
+
+    public function hashIncrementFloat(string $hash, string $field, float $value): void
+    {
+        if (!$this->connected || $this->client === null) {
+            return;
+        }
+        try {
+            $this->client->hincrbyfloat($hash, $field, $value);
+        } catch (Throwable $e) {
+            error_log('[RedisCache] hashIncrementFloat failed: ' . $e->getMessage());
         }
     }
 
@@ -103,7 +120,8 @@ final class RedisCache implements CacheInterface
         try {
             $raw = $this->client->get($key);
             return is_numeric($raw) ? (int)$raw : 0;
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            error_log('[RedisCache] getInt failed: ' . $e->getMessage());
             return 0;
         }
     }
@@ -118,13 +136,24 @@ final class RedisCache implements CacheInterface
         }
         try {
             return $this->client->hgetall($hash) ?? [];
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            error_log('[RedisCache] getAllHash failed: ' . $e->getMessage());
             return [];
         }
     }
 
     public function isConnected(): bool
     {
-        return $this->connected;
+        if (!$this->connected || $this->client === null) {
+            return false;
+        }
+        try {
+            $this->client->ping();
+            return true;
+        } catch (Throwable $e) {
+            $this->connected = false;
+            error_log('[RedisCache] isConnected ping failed: ' . $e->getMessage());
+            return false;
+        }
     }
 }

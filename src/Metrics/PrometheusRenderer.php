@@ -60,6 +60,53 @@ final class PrometheusRenderer implements MetricsRendererInterface
         $lines[] = 'rna_redis_connected ' . ($this->cache->isConnected() ? 1 : 0);
 
         $lines[] = '';
+        $lines[] = '# HELP rna_http_request_duration_ms HTTP request latency histogram in milliseconds';
+        $lines[] = '# TYPE rna_http_request_duration_ms histogram';
+
+        $histHash = $this->cache->getAllHash(MetricsKeys::HTTP_DURATION_HIST);
+        $sumHash  = $this->cache->getAllHash(MetricsKeys::HTTP_DURATION_SUM);
+
+        $series = [];
+        foreach ($histHash as $field => $count) {
+            $parts  = explode(':', $field, 3);
+            $method = $parts[0];
+            $route  = $parts[1] ?? '';
+            $le     = $parts[2] ?? '';
+            $series["{$method}:{$route}"][$le] = (int) $count;
+        }
+
+        foreach ($series as $key => $bucketCounts) {
+            $parts  = explode(':', $key, 2);
+            $method = $parts[0];
+            $route  = $parts[1] ?? '';
+            $cumulative = 0;
+            foreach (MetricsKeys::HISTOGRAM_BUCKETS as $le) {
+                $cumulative += array_key_exists($le, $bucketCounts) ? $bucketCounts[$le] : 0;
+                $lines[] = sprintf(
+                    'rna_http_request_duration_ms_bucket{method="%s",route="%s",le="%s"} %d',
+                    $method,
+                    $route,
+                    $le,
+                    $cumulative,
+                );
+            }
+            $cumulative += array_key_exists('+Inf', $bucketCounts) ? $bucketCounts['+Inf'] : 0;
+            $lines[] = sprintf(
+                'rna_http_request_duration_ms_bucket{method="%s",route="%s",le="+Inf"} %d',
+                $method,
+                $route,
+                $cumulative,
+            );
+            $lines[] = sprintf(
+                'rna_http_request_duration_ms_sum{method="%s",route="%s"} %.3f',
+                $method,
+                $route,
+                (float) ($sumHash[$key] ?? '0'),
+            );
+            $lines[] = "rna_http_request_duration_ms_count{method=\"{$method}\",route=\"{$route}\"} {$cumulative}";
+        }
+
+        $lines[] = '';
 
         return implode("\n", $lines);
     }

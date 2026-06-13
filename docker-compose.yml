@@ -1,4 +1,19 @@
 services:
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    ports:
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
   notification:
     build: ./notification-service
     env_file: .env
@@ -19,6 +34,31 @@ services:
       retries: 3
     restart: unless-stopped
 
+  notification-consumer:
+    build: ./notification-service
+    command: ["php", "/var/www/html/bin/consumer.php"]
+    env_file: .env
+    environment:
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      MAIL_FROM_ADDRESS: noreply@releases-api.app
+      MAIL_FROM_NAME: "Release Notifications"
+      APP_URL: http://localhost:8080
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f consumer.php > /dev/null"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    restart: unless-stopped
+
   api:
     build: .
     ports:
@@ -36,12 +76,16 @@ services:
       MAIL_FROM_ADDRESS: noreply@releases-api.app
       MAIL_FROM_NAME: "Release Notifications"
       NOTIFICATION_SERVICE_URL: http://notification:80
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
       notification:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-so", "/dev/null", "http://localhost/"]
@@ -68,13 +112,16 @@ services:
       MAIL_FROM_ADDRESS: noreply@releases-api.app
       MAIL_FROM_NAME: "Release Notifications"
       NOTIFICATION_SERVICE_URL: http://notification:80
-      # NOTIFICATION_DRIVER=http  — set to route emails through the notification service
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
       notification:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "pgrep -f scanner.php > /dev/null"]

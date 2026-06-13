@@ -10,16 +10,17 @@ RUN composer install \
     --no-dev \
     --no-scripts \
     --prefer-dist \
-    --optimize-autoloader
+    --optimize-autoloader \
+    --ignore-platform-req=ext-sockets
 
 # ── Stage 2: Runtime image ─────────────────────────────────────────────────────
 FROM php:8.2-apache AS runtime
 
 RUN apt-get update \
     && apt-get upgrade -y --no-install-recommends \
-    && apt-get install -y --no-install-recommends libzip-dev curl \
-    && docker-php-ext-install zip \
-    && apt-get purge -y linux-libc-dev \
+    && apt-get install -y --no-install-recommends libzip-dev libzip5 curl \
+    && docker-php-ext-install zip pcntl sockets \
+    && apt-get purge -y libzip-dev linux-libc-dev \
     && apt-get autoremove -y \
     && find /etc/apache2/mods-enabled/ -name 'mpm_*.load' -delete \
     && find /etc/apache2/mods-enabled/ -name 'mpm_*.conf' -delete \

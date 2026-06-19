@@ -25,12 +25,16 @@ use App\Modules\Observability\Infrastructure\MetricsCollector;
 use App\Modules\Observability\Infrastructure\PrometheusRenderer;
 use App\Modules\Scanner\Domain\LoggerInterface;
 use App\Modules\Scanner\Infrastructure\MonologLogger;
+use App\Modules\Subscription\Application\Saga\SubscribeSagaOrchestrator;
+use App\Modules\Subscription\Application\Saga\SubscribeSagaOrchestratorInterface;
 use App\Modules\Subscription\Application\TokenGenerator;
 use App\Modules\Subscription\Application\TokenGeneratorInterface;
 use App\Modules\Subscription\Application\SubscriptionService;
 use App\Modules\Subscription\Application\SubscriptionServiceInterface;
+use App\Modules\Subscription\Domain\Saga\SagaRepositoryInterface;
 use App\Modules\Subscription\Domain\SubscriptionRepositoryInterface;
 use App\Modules\Subscription\Domain\SubscriptionScanRepositoryInterface;
+use App\Modules\Subscription\Infrastructure\Persistence\SagaRepository;
 use App\Modules\Subscription\Infrastructure\Persistence\SubscriptionRepository;
 use App\SharedKernel\Infrastructure\Cache\CacheInterface;
 use App\SharedKernel\Infrastructure\Cache\RedisCache;
@@ -140,7 +144,23 @@ return [
 
     SubscriptionRepositoryInterface::class     => \DI\get(SubscriptionRepository::class),
     SubscriptionScanRepositoryInterface::class => \DI\get(SubscriptionRepository::class),
-    SubscriptionServiceInterface::class        => \DI\get(SubscriptionService::class),
+    SagaRepositoryInterface::class             => \DI\get(SagaRepository::class),
+
+    SubscribeSagaOrchestratorInterface::class => \DI\get(SubscribeSagaOrchestrator::class),
+
+    SubscribeSagaOrchestrator::class => function (ContainerInterface $c): SubscribeSagaOrchestrator {
+        /** @var SubscriptionRepositoryInterface $subscriptionRepo */
+        $subscriptionRepo = $c->get(SubscriptionRepositoryInterface::class);
+        /** @var SagaRepositoryInterface $sagaRepo */
+        $sagaRepo = $c->get(SagaRepositoryInterface::class);
+        /** @var ConfirmationMailerInterface $mailer */
+        $mailer = $c->get(ConfirmationMailerInterface::class);
+        /** @var TokenGeneratorInterface $tokenGenerator */
+        $tokenGenerator = $c->get(TokenGeneratorInterface::class);
+        return new SubscribeSagaOrchestrator($subscriptionRepo, $sagaRepo, $mailer, $tokenGenerator);
+    },
+
+    SubscriptionServiceInterface::class => \DI\get(SubscriptionService::class),
 
     ActiveSubscriptionCounterInterface::class => \DI\get(DatabaseSubscriptionCounter::class),
     MetricsRendererInterface::class           => \DI\get(PrometheusRenderer::class),

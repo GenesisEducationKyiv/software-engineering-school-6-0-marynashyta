@@ -23,6 +23,8 @@ interface SubscriptionRepositoryInterface
 
     public function delete(int $id): void;
 
+    public function deleteByEmailAndRepo(string $email, string $repo): void;
+
     /** @return list<Subscription> */
     public function findConfirmedByEmail(string $email): array;
 

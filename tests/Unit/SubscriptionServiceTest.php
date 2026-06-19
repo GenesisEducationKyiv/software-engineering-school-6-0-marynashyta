@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use App\Modules\Notification\Domain\ConfirmationMailerInterface;
+use App\Modules\Subscription\Application\Saga\SubscribeSagaOrchestratorInterface;
 use App\Modules\Subscription\Application\SubscribeRequest;
 use App\Modules\Subscription\Application\SubscriptionService;
-use App\Modules\Subscription\Application\TokenGenerator;
 use App\Modules\Subscription\Domain\Exception\AlreadySubscribedException;
 use App\Modules\Subscription\Domain\Exception\TokenNotFoundException;
 use App\Modules\Subscription\Domain\Exception\ValidationException;
@@ -23,52 +22,25 @@ final class SubscriptionServiceTest extends TestCase
 {
     private SubscriptionRepositoryInterface&MockObject $repository;
     private GitHubServiceInterface&MockObject $github;
-    private ConfirmationMailerInterface&MockObject $mailer;
+    private SubscribeSagaOrchestratorInterface&MockObject $orchestrator;
     private SubscriptionService $service;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        $this->repository = $this->createMock(SubscriptionRepositoryInterface::class);
-        $this->github     = $this->createMock(GitHubServiceInterface::class);
-        $this->mailer     = $this->createMock(ConfirmationMailerInterface::class);
-        $this->service    = new SubscriptionService(
-            $this->repository,
-            $this->github,
-            $this->mailer,
-            new TokenGenerator(),
-        );
-    }
-
     #[Test]
-    public function subscribeValidatesRepositoryAndPersistsSubscription(): void
+    public function subscribeDelegatesToOrchestratorAfterValidation(): void
     {
+        $request = new SubscribeRequest('user@example.com', 'owner/repo');
+
         $this->repository->method('existsByEmailAndRepo')->willReturn(false);
 
         $this->github->expects($this->once())
             ->method('validateRepository')
             ->with('owner/repo');
 
-        $this->repository->expects($this->once())
-            ->method('create')
-            ->with(
-                'user@example.com',
-                'owner/repo',
-                $this->matchesRegularExpression('/^[0-9a-f]{64}$/'),
-                $this->matchesRegularExpression('/^[0-9a-f]{64}$/')
-            );
+        $this->orchestrator->expects($this->once())
+            ->method('run')
+            ->with($request);
 
-        $this->mailer->expects($this->once())
-            ->method('sendConfirmation')
-            ->with(
-                'user@example.com',
-                'owner/repo',
-                $this->matchesRegularExpression('/^[0-9a-f]{64}$/'),
-                $this->matchesRegularExpression('/^[0-9a-f]{64}$/')
-            );
-
-        $this->service->subscribe(new SubscribeRequest('user@example.com', 'owner/repo'));
+        $this->service->subscribe($request);
     }
 
     #[Test]
@@ -79,8 +51,7 @@ final class SubscriptionServiceTest extends TestCase
         $this->expectExceptionMessage('Invalid email');
 
         $this->github->expects($this->never())->method('validateRepository');
-        $this->repository->expects($this->never())->method('create');
-        $this->mailer->expects($this->never())->method('sendConfirmation');
+        $this->orchestrator->expects($this->never())->method('run');
 
         $this->service->subscribe(new SubscribeRequest($email, 'owner/repo'));
     }
@@ -96,13 +67,10 @@ final class SubscriptionServiceTest extends TestCase
             ->with('user@example.com', 'owner/repo')
             ->willReturn(true);
 
-        $this->repository->expects($this->never())->method('create');
-        $this->mailer->expects($this->never())->method('sendConfirmation');
+        $this->orchestrator->expects($this->never())->method('run');
 
         $this->service->subscribe(new SubscribeRequest('user@example.com', 'owner/repo'));
     }
-
-    // ─── confirm ─────────────────────────────────────────────────────────────
 
     #[Test]
     public function confirmSetsLastSeenTagAndMarksSubscriptionConfirmed(): void
@@ -228,19 +196,32 @@ final class SubscriptionServiceTest extends TestCase
         $this->service->getSubscriptions($email);
     }
 
-
     /**
      * @return array<string, array{string}>
      */
     public static function invalidEmailProvider(): array
     {
         return [
-            'empty string' => [''],
-            'no @ symbol' => ['notanemail'],
+            'empty string'   => [''],
+            'no @ symbol'    => ['notanemail'],
             'missing domain' => ['user@'],
-            'missing user' => ['@example.com'],
-            'spaces' => ['user @example.com'],
-            'double @' => ['user@@example.com'],
+            'missing user'   => ['@example.com'],
+            'spaces'         => ['user @example.com'],
+            'double @'       => ['user@@example.com'],
         ];
+    }
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->repository   = $this->createMock(SubscriptionRepositoryInterface::class);
+        $this->github       = $this->createMock(GitHubServiceInterface::class);
+        $this->orchestrator = $this->createMock(SubscribeSagaOrchestratorInterface::class);
+        $this->service      = new SubscriptionService(
+            $this->repository,
+            $this->github,
+            $this->orchestrator,
+        );
     }
 }

@@ -44,6 +44,7 @@ services:
       MYSQL_ROOT_PASSWORD: rootsecret
     volumes:
       - ./migrations/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
+      - ./migrations/002_create_subscription_sagas_table.sql:/docker-entrypoint-initdb.d/002_create_subscription_sagas_table.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -uapp -psecret --silent"]
       interval: 5s

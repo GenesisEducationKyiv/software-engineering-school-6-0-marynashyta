@@ -12,7 +12,6 @@ use App\Modules\Subscription\Domain\Saga\SagaRepositoryInterface;
 use App\Modules\Subscription\Domain\Saga\SubscribeSaga;
 use App\Modules\Subscription\Domain\SubscriptionRepositoryInterface;
 
-
 final class SubscribeSagaOrchestrator implements SubscribeSagaOrchestratorInterface
 {
     public function __construct(

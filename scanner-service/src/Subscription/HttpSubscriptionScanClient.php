@@ -36,7 +36,7 @@ final class HttpSubscriptionScanClient implements SubscriptionScanClientInterfac
                     lastSeenTag:      is_string($row['last_seen_tag']) ? $row['last_seen_tag'] : null,
                     unsubscribeToken: is_string($row['unsubscribe_token']) ? $row['unsubscribe_token'] : '',
                 ),
-                $body['subscriptions'] ?? [],
+                $body['subscriptions'],
             );
         };
 

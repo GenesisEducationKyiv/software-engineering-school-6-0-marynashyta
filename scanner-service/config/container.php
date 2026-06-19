@@ -8,7 +8,6 @@ use Monolog\Formatter\JsonFormatter;
 use Monolog\Handler\StreamHandler;
 use Monolog\Level;
 use Monolog\Logger;
-use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use ScannerService\Config\AmqpConfig;
 use ScannerService\Config\ApiConfig;
@@ -67,27 +66,19 @@ return [
         timeoutSeconds: 30,
     ),
 
-    GitHubService::class => function (ContainerInterface $c): GitHubService {
-        $token = Env::string('GITHUB_TOKEN');
-        return new GitHubService(
-            http:           $c->get(ClientInterface::class),
-            token:          $token !== '' ? $token : null,
-            circuitBreaker: $c->get('circuit_breaker.github'),
-        );
-    },
+    GitHubService::class => \DI\autowire()
+        ->constructorParameter('token', \DI\factory(function (): ?string {
+            $token = Env::string('GITHUB_TOKEN');
+            return $token !== '' ? $token : null;
+        }))
+        ->constructorParameter('circuitBreaker', \DI\get('circuit_breaker.github')),
     GitHubClientInterface::class => \DI\get(GitHubService::class),
 
-    HttpSubscriptionScanClient::class => function (ContainerInterface $c): HttpSubscriptionScanClient {
-        return new HttpSubscriptionScanClient(
-            http:           $c->get(ClientInterface::class),
-            config:         $c->get(ApiConfig::class),
-            circuitBreaker: $c->get('circuit_breaker.subscription'),
-        );
-    },
+    HttpSubscriptionScanClient::class => \DI\autowire()
+        ->constructorParameter('circuitBreaker', \DI\get('circuit_breaker.subscription')),
     SubscriptionScanClientInterface::class => \DI\get(HttpSubscriptionScanClient::class),
 
-    AmqpNotificationPublisher::class => fn (ContainerInterface $c): AmqpNotificationPublisher =>
-        new AmqpNotificationPublisher($c->get(AmqpConfig::class)),
+    AmqpNotificationPublisher::class => \DI\autowire(),
     NotificationPublisherInterface::class => \DI\get(AmqpNotificationPublisher::class),
 
     ReleaseScanner::class => \DI\autowire(),

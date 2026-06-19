@@ -8,6 +8,17 @@ use ScannerService\Scanner\ReleaseScanner;
 
 require __DIR__ . '/../vendor/autoload.php';
 
+function sleepInterruptible(int $seconds, bool &$running): void
+{
+    for ($i = 0; $i < $seconds; $i++) {
+        sleep(1);
+        pcntl_signal_dispatch();
+        if (!$running) {
+            break;
+        }
+    }
+}
+
 $dotenv = Dotenv\Dotenv::createImmutable(dirname(__DIR__));
 $dotenv->safeLoad();
 
@@ -44,10 +55,7 @@ while ($running) {
 
     $logger->info("Scan cycle complete. Sleeping {$scanInterval}s.");
 
-    for ($i = 0; $i < $scanInterval && $running; $i++) {
-        sleep(1);
-        pcntl_signal_dispatch();
-    }
+    sleepInterruptible($scanInterval, $running);
 }
 
 $logger->info('Scanner stopped');

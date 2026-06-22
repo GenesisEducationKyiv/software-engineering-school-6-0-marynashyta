@@ -17,4 +17,13 @@ final class Env
         $value = $_ENV[$key] ?? null;
         return is_numeric($value) ? (int) $value : $default;
     }
+
+    public static function bool(string $key, bool $default = false): bool
+    {
+        $value = $_ENV[$key] ?? null;
+        if (!is_string($value) || $value === '') {
+            return $default;
+        }
+        return in_array(strtolower($value), ['true', '1', 'yes'], strict: true);
+    }
 }

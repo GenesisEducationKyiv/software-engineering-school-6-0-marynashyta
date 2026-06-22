@@ -1,4 +1,4 @@
-.PHONY: test test-unit test-integration test-e2e lint cs cs-fix
+.PHONY: test test-unit test-integration test-e2e lint cs cs-fix proto-lint proto-generate
 
 COMPOSE_TEST = docker compose -f docker-compose.test.yml
 
@@ -29,3 +29,10 @@ cs:
 
 cs-fix:
 	composer cs-fix
+
+proto-lint:
+	buf lint
+
+proto-generate:
+	buf generate
+	@echo "PHP stubs written to generated/"

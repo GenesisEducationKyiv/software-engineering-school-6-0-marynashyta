@@ -14,6 +14,7 @@ use NotificationService\Consumer\NotificationConsumer;
 use NotificationService\Health\HealthController;
 use NotificationService\Mailer;
 use NotificationService\MailerInterface;
+use NotificationService\NullMailer;
 use NotificationService\Middleware\RequestLoggingMiddleware;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
@@ -57,7 +58,9 @@ return [
         $smtp = $c->get(SmtpConfig::class);
         return new Mailer(smtp: $smtp, appUrl: Env::string('APP_URL', 'http://localhost:8080'));
     },
-    MailerInterface::class => \DI\get(Mailer::class),
+    MailerInterface::class => Env::bool('BENCH_MODE')
+        ? \DI\get(NullMailer::class)
+        : \DI\get(Mailer::class),
 
     AmqpConfig::class => fn (): AmqpConfig => new AmqpConfig(
         host:     Env::string('RABBITMQ_HOST', 'rabbitmq'),

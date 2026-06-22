@@ -12,7 +12,9 @@
         "predis/predis": "^3.0",
         "php-di/php-di": "^7.1",
         "monolog/monolog": "^3.0",
-        "php-amqplib/php-amqplib": "^3.6"
+        "php-amqplib/php-amqplib": "^3.6",
+        "grpc/grpc": "^1.57",
+        "google/protobuf": "^4.29"
     },
     "require-dev": {
         "phpunit/phpunit": "^11.0",
@@ -23,7 +25,9 @@
     },
     "autoload": {
         "psr-4": {
-            "App\\": "src/"
+            "App\\": "src/",
+            "Notification\\V1\\": "generated/Notification/V1/",
+            "GPBMetadata\\Notification\\V1\\": "generated/GPBMetadata/Notification/V1/"
         }
     },
     "autoload-dev": {

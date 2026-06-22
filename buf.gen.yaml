@@ -1,0 +1,18 @@
+version: v2
+
+managed:
+  enabled: true
+  override:
+    - file_option: php_namespace
+      value: "Notification\\V1"
+    - file_option: php_metadata_namespace
+      value: "GPBMetadata\\Notification\\V1"
+
+plugins:
+  # Protobuf message classes
+  - remote: buf.build/protocolbuffers/php
+    out: generated
+
+  # gRPC service client stub
+  - remote: buf.build/grpc/php
+    out: generated

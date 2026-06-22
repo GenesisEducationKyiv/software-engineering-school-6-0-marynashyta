@@ -33,10 +33,69 @@ docker compose up --build
 
 Email delivery is routed via `NOTIFICATION_DRIVER` in `.env`:
 
+| Driver | Transport | Notes |
+| --- | --- | --- |
+| `http` | HTTP/1.1 + JSON → `notification` | legacy REST, kept for comparison |
+| `amqp` | RabbitMQ → `notification-consumer` | default; async, decoupled |
+| `grpc` | HTTP/2 + Protobuf → `notification-grpc` | synchronous, strongly-typed |
+| _(unset)_ | in-process SMTP | instant rollback, no redeploy |
+
 ```dotenv
-NOTIFICATION_DRIVER=http        # production default — uses notification-service
-NOTIFICATION_DRIVER=in_process  # instant rollback, no redeploy needed
+NOTIFICATION_DRIVER=grpc
 ```
+
+### gRPC transport
+
+The `notification-grpc` service runs a [RoadRunner](https://roadrunner.dev) gRPC server on port `50051`. The contract is defined in [`proto/notification/v1/notification.proto`](proto/notification/v1/notification.proto) and generated with [Buf](https://buf.build).
+
+**Contract summary:**
+
+```protobuf
+service NotificationService {
+  rpc SendConfirmation(SendConfirmationRequest) returns (SendConfirmationResponse);
+  rpc SendNotification(SendNotificationRequest)  returns (SendNotificationResponse);
+}
+```
+
+Both RPCs return an empty response on success; errors are signalled via standard gRPC status codes (`INVALID_ARGUMENT` for missing fields, `INTERNAL` for delivery failures).
+
+**Enable it:**
+
+```dotenv
+# .env
+NOTIFICATION_DRIVER=grpc
+NOTIFICATION_SERVICE_GRPC=notification-grpc:50051
+```
+
+**Smoke test with grpcurl:**
+
+```bash
+grpcurl -plaintext \
+  -d '{"email":"you@example.com","repo":"owner/repo","confirm_token":"tok","unsubscribe_token":"unsub"}' \
+  localhost:50051 \
+  notification.v1.NotificationService/SendConfirmation
+# → {}
+```
+
+**Validate the proto schema:**
+
+```bash
+buf lint   # runs STANDARD rule set defined in buf.yaml
+```
+
+### Throughput comparison: gRPC vs REST
+
+Benchmarked locally with Docker Compose, `NullMailer` active (SMTP excluded), 10 concurrent connections, 10-second run.
+
+| | gRPC (`ghz`) | REST (`autocannon`) |
+| --- | --- | --- |
+| Req/sec | **203** | 194 |
+| p50 latency | **47 ms** | 53 ms |
+| p99 latency | **64 ms** | 138 ms |
+| Max latency | 89 ms | 2807 ms |
+| Latency stdev | low | 108 ms |
+
+**Interpretation:** Both transports share the same ~45 ms PHP/RoadRunner execution floor, so raw throughput is similar. The meaningful difference is in tail latency: gRPC p99 is 64 ms versus REST 138 ms, and REST spiked to 2 807 ms at peak. HTTP/1.1 serialises requests per connection — one slow request blocks the next. HTTP/2 multiplexes all requests over a single connection, so a stalled request does not affect others.
 
 ### ELK log aggregation (optional)
 

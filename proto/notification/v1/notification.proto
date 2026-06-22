@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package notification.v1;
+
+option php_namespace = "Notification\\V1";
+option php_metadata_namespace = "GPBMetadata\\Notification\\V1";
+
+// NotificationService handles transactional email delivery on behalf of the API service.
+service NotificationService {
+  // SendConfirmation sends a subscription-confirmation email with a confirm link and
+  // an unsubscribe link. Called synchronously from the Subscribe saga orchestrator.
+  rpc SendConfirmation(SendConfirmationRequest) returns (SendConfirmationResponse);
+
+  // SendNotification sends a release-alert email to a confirmed subscriber.
+  rpc SendNotification(SendNotificationRequest) returns (SendNotificationResponse);
+}
+
+message SendConfirmationRequest {
+  string email             = 1;
+  string repo              = 2;
+  string confirm_token     = 3;
+  string unsubscribe_token = 4;
+}
+
+message SendConfirmationResponse {
+  // intentionally empty – success is signalled by gRPC status OK
+}
+
+message SendNotificationRequest {
+  string email             = 1;
+  string repo              = 2;
+  string tag               = 3;
+  string unsubscribe_token = 4;
+}
+
+message SendNotificationResponse {
+  // intentionally empty – success is signalled by gRPC status OK
+}

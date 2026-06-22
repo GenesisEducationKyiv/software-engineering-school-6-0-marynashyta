@@ -14,6 +14,9 @@ use App\Modules\Notification\Infrastructure\Amqp\AmqpConfig;
 use App\Modules\Notification\Infrastructure\Amqp\AmqpConfirmationMailer;
 use App\Modules\Notification\Infrastructure\Amqp\AmqpNotificationMailer;
 use App\Modules\Notification\Infrastructure\Amqp\AmqpPublisher;
+use App\Modules\Notification\Infrastructure\Grpc\GrpcConfirmationMailer;
+use App\Modules\Notification\Infrastructure\Grpc\GrpcNotificationMailer;
+use Notification\V1\NotificationServiceClient;
 use App\Modules\Notification\Infrastructure\Http\HttpConfirmationMailer;
 use App\Modules\Notification\Infrastructure\Http\HttpNotificationMailer;
 use App\Modules\Notification\Infrastructure\SmtpConfig;
@@ -124,10 +127,27 @@ return [
         return new HttpNotificationMailer($http, Env::string('NOTIFICATION_SERVICE_URL', 'http://notification:80'));
     },
 
+    NotificationServiceClient::class => fn (): NotificationServiceClient =>
+        new NotificationServiceClient(
+            Env::string('NOTIFICATION_SERVICE_GRPC', 'notification-grpc:50051'),
+            ['credentials' => \Grpc\ChannelCredentials::createInsecure()],
+        ),
+    GrpcConfirmationMailer::class => function (ContainerInterface $c): GrpcConfirmationMailer {
+        /** @var NotificationServiceClient $grpcClient */
+        $grpcClient = $c->get(NotificationServiceClient::class);
+        return new GrpcConfirmationMailer($grpcClient);
+    },
+    GrpcNotificationMailer::class => function (ContainerInterface $c): GrpcNotificationMailer {
+        /** @var NotificationServiceClient $grpcClient */
+        $grpcClient = $c->get(NotificationServiceClient::class);
+        return new GrpcNotificationMailer($grpcClient);
+    },
+
     ConfirmationMailerInterface::class => function (ContainerInterface $c): ConfirmationMailerInterface {
         return match (Env::string('NOTIFICATION_DRIVER')) {
             'http'  => $c->get(HttpConfirmationMailer::class),
             'amqp'  => $c->get(AmqpConfirmationMailer::class),
+            'grpc'  => $c->get(GrpcConfirmationMailer::class),
             default => $c->get(EmailService::class),
         };
     },
@@ -135,6 +155,7 @@ return [
         return match (Env::string('NOTIFICATION_DRIVER')) {
             'http'  => $c->get(HttpNotificationMailer::class),
             'amqp'  => $c->get(AmqpNotificationMailer::class),
+            'grpc'  => $c->get(GrpcNotificationMailer::class),
             default => $c->get(EmailService::class),
         };
     },

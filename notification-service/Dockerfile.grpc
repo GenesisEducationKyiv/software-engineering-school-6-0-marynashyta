@@ -1,0 +1,51 @@
+# ── Stage 1: Pull the RoadRunner binary ────────────────────────────────────────
+FROM ghcr.io/roadrunner-server/roadrunner:2025.1.15 AS rr
+
+# ── Stage 2: Install PHP dependencies ─────────────────────────────────────────
+FROM composer:2.7 AS deps
+
+WORKDIR /app
+
+# Build context is the repo root so we can access generated/ proto stubs.
+COPY notification-service/composer.json notification-service/composer.lock* ./
+
+RUN composer install \
+    --no-interaction \
+    --no-dev \
+    --no-scripts \
+    --prefer-dist \
+    --optimize-autoloader \
+    --ignore-platform-req=ext-sockets
+
+# ── Stage 3: Runtime image (PHP CLI only – no Apache) ─────────────────────────
+FROM php:8.2-cli AS runtime
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libzip-dev libzip5 curl procps \
+    && docker-php-ext-install zip sockets pcntl \
+    && apt-get purge -y linux-libc-dev \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
+# RoadRunner binary handles the gRPC protocol; no grpc PHP extension needed.
+COPY --from=rr /usr/bin/rr /usr/local/bin/rr
+
+WORKDIR /app
+
+COPY --from=deps /app/vendor ./vendor
+
+# Copy notification-service source
+COPY notification-service/ .
+
+# Copy generated protobuf stubs (buf generate output, committed to repo)
+COPY generated/ generated/
+
+# Copy proto file for gRPC reflection (used by .rr.yaml)
+COPY proto/ proto/
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD pgrep -f rr > /dev/null || exit 1
+
+EXPOSE 50051
+
+CMD ["rr", "serve", "-c", ".rr.yaml"]

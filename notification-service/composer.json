@@ -10,7 +10,10 @@
         "vlucas/phpdotenv": "^5.6",
         "php-di/php-di": "^7.1",
         "monolog/monolog": "^3.0",
-        "php-amqplib/php-amqplib": "^3.6"
+        "php-amqplib/php-amqplib": "^3.6",
+        "spiral/roadrunner-grpc": "^3.6",
+        "spiral/roadrunner-worker": "^3.5",
+        "google/protobuf": "^4.29"
     },
     "require-dev": {
         "phpunit/phpunit": "^11.0",
@@ -18,7 +21,9 @@
     },
     "autoload": {
         "psr-4": {
-            "NotificationService\\": "src/"
+            "NotificationService\\": "src/",
+            "Notification\\V1\\": "generated/Notification/V1/",
+            "GPBMetadata\\Notification\\V1\\": "generated/GPBMetadata/Notification/V1/"
         }
     },
     "autoload-dev": {

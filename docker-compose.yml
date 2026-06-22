@@ -1,4 +1,28 @@
 services:
+  notification-grpc:
+    build:
+      context: .
+      dockerfile: notification-service/Dockerfile.grpc
+    env_file: .env
+    environment:
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      MAIL_FROM_ADDRESS: noreply@releases-api.app
+      MAIL_FROM_NAME: "Release Notifications"
+      APP_URL: http://localhost:8080
+    ports:
+      - "50051:50051"
+    depends_on:
+      mailpit:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep rr > /dev/null"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    restart: unless-stopped
+
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     ports:
@@ -76,6 +100,7 @@ services:
       MAIL_FROM_ADDRESS: noreply@releases-api.app
       MAIL_FROM_NAME: "Release Notifications"
       NOTIFICATION_SERVICE_URL: http://notification:80
+      NOTIFICATION_SERVICE_GRPC: notification-grpc:50051
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
     depends_on:
@@ -84,6 +109,8 @@ services:
       redis:
         condition: service_healthy
       notification:
+        condition: service_healthy
+      notification-grpc:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy

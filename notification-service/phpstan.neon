@@ -5,5 +5,7 @@ parameters:
         - public
         - config
         - bin
+    scanDirectories:
+        - ../generated
     excludePaths:
         - vendor

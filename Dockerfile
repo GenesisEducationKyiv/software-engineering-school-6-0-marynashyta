@@ -14,7 +14,8 @@ RUN composer install \
     --no-scripts \
     --prefer-dist \
     --optimize-autoloader \
-    --ignore-platform-req=ext-sockets
+    --ignore-platform-req=ext-sockets \
+    --ignore-platform-req=ext-grpc
 
 # ── Stage 2: Runtime image ─────────────────────────────────────────────────────
 FROM php:8.2-apache AS runtime
@@ -27,6 +28,8 @@ RUN apt-get update \
     && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends libzip-dev libzip5 curl \
     && docker-php-ext-install pdo_mysql zip sockets \
+    && pecl install grpc \
+    && docker-php-ext-enable grpc \
     && apt-get purge -y libzip-dev linux-libc-dev \
     && apt-get autoremove -y \
     && find /etc/apache2/mods-enabled/ -name 'mpm_*.load' -delete \
@@ -43,6 +46,9 @@ COPY --from=deps /app/vendor ./vendor
 
 # Copy application source (vendor/ is excluded via .dockerignore).
 COPY . .
+
+# Copy generated protobuf stubs (produced by `buf generate` – committed to repo).
+COPY generated/ generated/
 
 # Point Apache at the Slim front-controller.
 RUN sed -i 's|DocumentRoot /var/www/html|DocumentRoot /var/www/html/public|g' \

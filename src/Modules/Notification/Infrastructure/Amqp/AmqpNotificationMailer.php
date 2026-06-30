@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Notification\Infrastructure\Amqp;
 
-use App\Modules\Notification\Domain\NotificationMailerInterface;
+use App\Modules\Notification\Application\NotificationMailerInterface;
 
 final class AmqpNotificationMailer implements NotificationMailerInterface
 {

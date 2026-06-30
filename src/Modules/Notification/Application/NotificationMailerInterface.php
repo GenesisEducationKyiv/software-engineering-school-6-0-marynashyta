@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Modules\Notification\Domain;
+namespace App\Modules\Notification\Application;
 
-use PHPMailer\PHPMailer\Exception as PHPMailerException;
+use App\Modules\Notification\Application\Exception\NotificationDeliveryException;
 
 interface NotificationMailerInterface
 {
     /**
-     * @throws PHPMailerException
+     * @throws NotificationDeliveryException
      */
     public function sendReleaseNotification(
         string $email,

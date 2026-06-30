@@ -10,6 +10,7 @@ use NotificationService\Config\AmqpConfig;
 use NotificationService\Config\Env;
 use NotificationService\Config\SmtpConfig;
 use NotificationService\Consumer\MessageHandler;
+use NotificationService\Consumer\MessageProcessor;
 use NotificationService\Consumer\NotificationConsumer;
 use NotificationService\Health\HealthController;
 use NotificationService\Mailer;
@@ -67,6 +68,8 @@ return [
     ),
 
     MessageHandler::class => \DI\autowire(),
+
+    MessageProcessor::class => \DI\autowire(),
 
     NotificationConsumer::class => \DI\autowire(),
 

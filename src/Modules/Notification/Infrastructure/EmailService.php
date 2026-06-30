@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Notification\Infrastructure;
 
 use App\Modules\GitHub\Domain\ReleaseUrlBuilderInterface;
-use App\Modules\Notification\Domain\ConfirmationMailerInterface;
-use App\Modules\Notification\Domain\NotificationMailerInterface;
+use App\Modules\Notification\Application\ConfirmationMailerInterface;
+use App\Modules\Notification\Application\Exception\NotificationDeliveryException;
+use App\Modules\Notification\Application\NotificationMailerInterface;
 use App\Modules\Notification\Infrastructure\Templates\EmailTemplates;
 use PHPMailer\PHPMailer\Exception as PHPMailerException;
 use PHPMailer\PHPMailer\PHPMailer;
@@ -24,7 +25,7 @@ final class EmailService implements ConfirmationMailerInterface, NotificationMai
     }
 
     /**
-     * @throws PHPMailerException
+     * @throws NotificationDeliveryException
      */
     public function sendConfirmation(
         string $email,
@@ -43,7 +44,7 @@ final class EmailService implements ConfirmationMailerInterface, NotificationMai
     }
 
     /**
-     * @throws PHPMailerException
+     * @throws NotificationDeliveryException
      */
     public function sendReleaseNotification(
         string $email,
@@ -62,7 +63,7 @@ final class EmailService implements ConfirmationMailerInterface, NotificationMai
     }
 
     /**
-     * @throws PHPMailerException
+     * @throws NotificationDeliveryException
      */
     private function send(string $to, string $subject, string $body): void
     {
@@ -93,6 +94,10 @@ final class EmailService implements ConfirmationMailerInterface, NotificationMai
         $mail->Body    = $body;
         $mail->AltBody = strip_tags(str_replace(['<br>', '<br/>', '<br />'], "\n", $body));
 
-        $mail->send();
+        try {
+            $mail->send();
+        } catch (PHPMailerException $e) {
+            throw new NotificationDeliveryException('Failed to send email: ' . $e->getMessage(), 0, $e);
+        }
     }
 }

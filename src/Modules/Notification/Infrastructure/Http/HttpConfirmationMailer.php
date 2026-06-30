@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Notification\Infrastructure\Http;
 
-use App\Modules\Notification\Domain\ConfirmationMailerInterface;
+use App\Modules\Notification\Application\ConfirmationMailerInterface;
+use App\Modules\Notification\Application\Exception\NotificationDeliveryException;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\GuzzleException;
-use PHPMailer\PHPMailer\Exception as PHPMailerException;
 
 final class HttpConfirmationMailer implements ConfirmationMailerInterface
 {
@@ -18,7 +18,7 @@ final class HttpConfirmationMailer implements ConfirmationMailerInterface
     }
 
     /**
-     * @throws PHPMailerException
+     * @throws NotificationDeliveryException
      */
     public function sendConfirmation(
         string $email,
@@ -36,7 +36,7 @@ final class HttpConfirmationMailer implements ConfirmationMailerInterface
                 ],
             ]);
         } catch (GuzzleException $e) {
-            throw new PHPMailerException('Notification service unreachable: ' . $e->getMessage(), 0, $e);
+            throw new NotificationDeliveryException('Notification service unreachable: ' . $e->getMessage(), 0, $e);
         }
     }
 }

@@ -6,13 +6,14 @@ namespace App\Modules\GitHub\Infrastructure;
 
 use App\Modules\GitHub\Domain\GitHubRelease;
 use App\Modules\GitHub\Domain\GitHubServiceInterface;
+use App\Modules\GitHub\Domain\Event\GitHubApiCallRecorded;
 use App\Modules\GitHub\Domain\Exception\InvalidRepositoryFormatException;
 use App\Modules\GitHub\Domain\Exception\RateLimitException;
 use App\Modules\GitHub\Domain\Exception\RepositoryNotFoundException;
-use App\Modules\Observability\Domain\MetricsCollectorInterface;
-use App\Modules\Observability\Infrastructure\NullMetricsCollector;
 use App\SharedKernel\Infrastructure\Cache\CacheInterface;
 use App\SharedKernel\Infrastructure\Cache\NullCache;
+use App\SharedKernel\Infrastructure\Event\EventDispatcherInterface;
+use App\SharedKernel\Infrastructure\Event\SimpleEventDispatcher;
 use App\SharedKernel\Infrastructure\Json;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\ClientException;
@@ -28,7 +29,7 @@ final class GitHubService implements GitHubServiceInterface
         private readonly ClientInterface $client,
         private readonly ?string $token = null,
         private readonly CacheInterface $cache = new NullCache(),
-        private readonly MetricsCollectorInterface $metrics = new NullMetricsCollector(),
+        private readonly EventDispatcherInterface $events = new SimpleEventDispatcher(),
     ) {
     }
 
@@ -46,14 +47,14 @@ final class GitHubService implements GitHubServiceInterface
         $cacheKey = "github:validate:{$repo}";
 
         if ($this->cache->get($cacheKey) !== null) {
-            $this->metrics->recordGithubApiCall('validate_repo', true);
+            $this->events->dispatch(new GitHubApiCallRecorded('validate_repo', true));
             return;
         }
 
         try {
             $this->makeRequest(self::API_BASE . "/repos/{$repo}");
             $this->cache->set($cacheKey, '1', self::CACHE_TTL);
-            $this->metrics->recordGithubApiCall('validate_repo', false);
+            $this->events->dispatch(new GitHubApiCallRecorded('validate_repo', false));
         } catch (ClientException $e) {
             $statusCode = $e->getResponse()->getStatusCode();
 
@@ -79,7 +80,7 @@ final class GitHubService implements GitHubServiceInterface
         $cached   = $this->cache->get($cacheKey);
 
         if ($cached !== null) {
-            $this->metrics->recordGithubApiCall('latest_release', true);
+            $this->events->dispatch(new GitHubApiCallRecorded('latest_release', true));
             return $cached === self::CACHE_NULL_TAG ? null : $cached;
         }
 
@@ -89,7 +90,7 @@ final class GitHubService implements GitHubServiceInterface
             $latestTag = $release->tagName;
 
             $this->cache->set($cacheKey, $latestTag ?? self::CACHE_NULL_TAG, self::CACHE_TTL);
-            $this->metrics->recordGithubApiCall('latest_release', false);
+            $this->events->dispatch(new GitHubApiCallRecorded('latest_release', false));
 
             return $latestTag;
         } catch (ClientException $e) {
@@ -97,7 +98,7 @@ final class GitHubService implements GitHubServiceInterface
 
             if ($statusCode === 404) {
                 $this->cache->set($cacheKey, self::CACHE_NULL_TAG, self::CACHE_TTL);
-                $this->metrics->recordGithubApiCall('latest_release', false);
+                $this->events->dispatch(new GitHubApiCallRecorded('latest_release', false));
                 return null;
             }
 

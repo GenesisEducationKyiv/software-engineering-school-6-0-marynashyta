@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Notification\Infrastructure\Amqp;
 
-use App\Modules\Notification\Domain\ConfirmationMailerInterface;
+use App\Modules\Notification\Application\ConfirmationMailerInterface;
 
 final class AmqpConfirmationMailer implements ConfirmationMailerInterface
 {

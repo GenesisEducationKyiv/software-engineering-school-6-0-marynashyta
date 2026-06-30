@@ -12,10 +12,8 @@ use Psr\Log\LoggerInterface;
 
 final class NotificationConsumer
 {
-    private const QUEUE = 'notifications';
-
     public function __construct(
-        private readonly MessageHandler $handler,
+        private readonly MessageProcessor $processor,
         private readonly LoggerInterface $logger,
         private readonly AmqpConfig $amqpConfig,
     ) {
@@ -32,10 +30,11 @@ final class NotificationConsumer
 
         try {
             $channel = $connection->channel();
-            $channel->queue_declare(self::QUEUE, false, true, false, false);
+            $channel->queue_declare(MessageProcessor::QUEUE, false, true, false, false);
+            $channel->queue_declare(MessageProcessor::DEAD_LETTER_QUEUE, false, true, false, false);
             $channel->basic_qos(prefetch_size: 0, prefetch_count: 1, a_global: false);
 
-            $this->logger->info('Consumer started', ['queue' => self::QUEUE]);
+            $this->logger->info('Consumer started', ['queue' => MessageProcessor::QUEUE]);
 
             $running = true;
             pcntl_signal(SIGTERM, function () use (&$running, $channel): void {
@@ -45,16 +44,9 @@ final class NotificationConsumer
             });
 
             $channel->basic_consume(
-                queue:    self::QUEUE,
-                callback: function (AMQPMessage $msg): void {
-                    try {
-                        $this->handler->handle($msg->getBody());
-                        $msg->ack();
-                        $this->logger->info('Message processed');
-                    } catch (\Throwable $e) {
-                        $msg->nack(false);
-                        $this->logger->error('Message processing failed', ['error' => $e->getMessage()]);
-                    }
+                queue:    MessageProcessor::QUEUE,
+                callback: function (AMQPMessage $msg) use ($channel): void {
+                    $this->processor->process($channel, $msg);
                 },
             );
 

@@ -8,17 +8,13 @@ use App\Modules\Subscription\Domain\Exception\AlreadySubscribedException;
 use App\Modules\Subscription\Domain\Exception\TokenNotFoundException;
 use App\Modules\Subscription\Domain\Exception\ValidationException;
 use App\Modules\Subscription\Domain\Subscription;
-use App\Modules\GitHub\Domain\Exception\InvalidRepositoryFormatException;
-use App\Modules\GitHub\Domain\Exception\RateLimitException;
-use App\Modules\GitHub\Domain\Exception\RepositoryNotFoundException;
+use App\SharedKernel\Domain\HttpExceptionInterface;
 
 interface SubscriptionServiceInterface
 {
     /**
      * @throws ValidationException
-     * @throws InvalidRepositoryFormatException
-     * @throws RepositoryNotFoundException
-     * @throws RateLimitException
+     * @throws HttpExceptionInterface
      * @throws AlreadySubscribedException
      */
     public function subscribe(SubscribeRequest $request): void;

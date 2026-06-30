@@ -6,7 +6,7 @@ namespace Tests\Unit;
 
 use App\Modules\GitHub\Domain\Exception\RateLimitException;
 use App\Modules\GitHub\Domain\GitHubServiceInterface;
-use App\Modules\Notification\Domain\NotificationMailerInterface;
+use App\Modules\Notification\Application\NotificationMailerInterface;
 use App\Modules\Observability\Domain\MetricsCollectorInterface;
 use App\Modules\Scanner\Application\ReleaseScanner;
 use App\Modules\Scanner\Domain\LoggerInterface;

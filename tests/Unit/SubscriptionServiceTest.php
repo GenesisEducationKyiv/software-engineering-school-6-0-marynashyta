@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use App\Modules\Notification\Domain\ConfirmationMailerInterface;
+use App\Modules\Subscription\Application\Acl\ConfirmationGatewayInterface;
+use App\Modules\Subscription\Application\Acl\RepositoryGatewayInterface;
 use App\Modules\Subscription\Application\SubscribeRequest;
 use App\Modules\Subscription\Application\SubscriptionService;
 use App\Modules\Subscription\Application\TokenGenerator;
@@ -13,7 +14,6 @@ use App\Modules\Subscription\Domain\Exception\TokenNotFoundException;
 use App\Modules\Subscription\Domain\Exception\ValidationException;
 use App\Modules\Subscription\Domain\Subscription;
 use App\Modules\Subscription\Domain\SubscriptionRepositoryInterface;
-use App\Modules\GitHub\Domain\GitHubServiceInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -22,8 +22,8 @@ use PHPUnit\Framework\TestCase;
 final class SubscriptionServiceTest extends TestCase
 {
     private SubscriptionRepositoryInterface&MockObject $repository;
-    private GitHubServiceInterface&MockObject $github;
-    private ConfirmationMailerInterface&MockObject $mailer;
+    private RepositoryGatewayInterface&MockObject $github;
+    private ConfirmationGatewayInterface&MockObject $mailer;
     private SubscriptionService $service;
 
     protected function setUp(): void
@@ -31,8 +31,8 @@ final class SubscriptionServiceTest extends TestCase
         parent::setUp();
 
         $this->repository = $this->createMock(SubscriptionRepositoryInterface::class);
-        $this->github     = $this->createMock(GitHubServiceInterface::class);
-        $this->mailer     = $this->createMock(ConfirmationMailerInterface::class);
+        $this->github     = $this->createMock(RepositoryGatewayInterface::class);
+        $this->mailer     = $this->createMock(ConfirmationGatewayInterface::class);
         $this->service    = new SubscriptionService(
             $this->repository,
             $this->github,
@@ -47,7 +47,7 @@ final class SubscriptionServiceTest extends TestCase
         $this->repository->method('existsByEmailAndRepo')->willReturn(false);
 
         $this->github->expects($this->once())
-            ->method('validateRepository')
+            ->method('assertRepositoryExists')
             ->with('owner/repo');
 
         $this->repository->expects($this->once())
@@ -78,7 +78,7 @@ final class SubscriptionServiceTest extends TestCase
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Invalid email');
 
-        $this->github->expects($this->never())->method('validateRepository');
+        $this->github->expects($this->never())->method('assertRepositoryExists');
         $this->repository->expects($this->never())->method('create');
         $this->mailer->expects($this->never())->method('sendConfirmation');
 
@@ -90,7 +90,7 @@ final class SubscriptionServiceTest extends TestCase
     {
         $this->expectException(AlreadySubscribedException::class);
 
-        $this->github->expects($this->once())->method('validateRepository');
+        $this->github->expects($this->once())->method('assertRepositoryExists');
         $this->repository->expects($this->once())
             ->method('existsByEmailAndRepo')
             ->with('user@example.com', 'owner/repo')
@@ -115,7 +115,7 @@ final class SubscriptionServiceTest extends TestCase
             ->willReturn(new Subscription(1, 'user@example.com', 'owner/repo', false, null, 'tok'));
 
         $this->github->expects($this->once())
-            ->method('getLatestRelease')
+            ->method('findLatestReleaseTag')
             ->with('owner/repo')
             ->willReturn('v1.0.0');
 
@@ -136,7 +136,7 @@ final class SubscriptionServiceTest extends TestCase
             ->with($token)
             ->willReturn(new Subscription(2, 'user@example.com', 'owner/repo', true, 'v1.0.0', 'tok'));
 
-        $this->github->expects($this->never())->method('getLatestRelease');
+        $this->github->expects($this->never())->method('findLatestReleaseTag');
         $this->repository->expects($this->never())->method('confirm');
 
         $this->service->confirm($token);

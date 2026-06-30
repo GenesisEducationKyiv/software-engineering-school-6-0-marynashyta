@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Notification\Infrastructure\Http;
 
-use App\Modules\Notification\Domain\NotificationMailerInterface;
+use App\Modules\Notification\Application\Exception\NotificationDeliveryException;
+use App\Modules\Notification\Application\NotificationMailerInterface;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\GuzzleException;
-use PHPMailer\PHPMailer\Exception as PHPMailerException;
 
 final class HttpNotificationMailer implements NotificationMailerInterface
 {
@@ -18,7 +18,7 @@ final class HttpNotificationMailer implements NotificationMailerInterface
     }
 
     /**
-     * @throws PHPMailerException
+     * @throws NotificationDeliveryException
      */
     public function sendReleaseNotification(
         string $email,
@@ -36,7 +36,7 @@ final class HttpNotificationMailer implements NotificationMailerInterface
                 ],
             ]);
         } catch (GuzzleException $e) {
-            throw new PHPMailerException('Notification service unreachable: ' . $e->getMessage(), 0, $e);
+            throw new NotificationDeliveryException('Notification service unreachable: ' . $e->getMessage(), 0, $e);
         }
     }
 }

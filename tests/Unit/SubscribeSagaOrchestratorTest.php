@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use App\Modules\Notification\Domain\ConfirmationMailerInterface;
+use App\Modules\Notification\Application\ConfirmationMailerInterface;
 use App\Modules\Subscription\Application\Saga\SubscribeSagaOrchestrator;
 use App\Modules\Subscription\Application\SubscribeRequest;
 use App\Modules\Subscription\Application\TokenGenerator;
@@ -13,6 +13,7 @@ use App\Modules\Subscription\Domain\Saga\SagaRepositoryInterface;
 use App\Modules\Subscription\Domain\Saga\SagaState;
 use App\Modules\Subscription\Domain\Saga\SubscribeSaga;
 use App\Modules\Subscription\Domain\SubscriptionRepositoryInterface;
+use App\SharedKernel\Infrastructure\Database\TransactionManagerInterface;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -22,6 +23,7 @@ final class SubscribeSagaOrchestratorTest extends TestCase
     private SubscriptionRepositoryInterface&MockObject $subscriptionRepository;
     private SagaRepositoryInterface&MockObject $sagaRepository;
     private ConfirmationMailerInterface&MockObject $mailer;
+    private TransactionManagerInterface&MockObject $transactions;
     private SubscribeSagaOrchestrator $orchestrator;
 
     #[Test]
@@ -142,6 +144,48 @@ final class SubscribeSagaOrchestratorTest extends TestCase
         $this->assertSame('timeout', $final->compensationReason);
     }
 
+    #[Test]
+    public function compensationRunsInsideASingleTransaction(): void
+    {
+        $this->mailer->method('sendConfirmation')
+            ->willThrowException(new \RuntimeException('fail'));
+
+        $this->transactions = $this->createMock(TransactionManagerInterface::class);
+        $this->transactions->expects($this->once())
+            ->method('transactional')
+            ->willReturnCallback(static fn (callable $operation): mixed => $operation());
+
+        $orchestrator = new SubscribeSagaOrchestrator(
+            $this->subscriptionRepository,
+            $this->sagaRepository,
+            $this->mailer,
+            new TokenGenerator(),
+            $this->transactions,
+        );
+
+        try {
+            $orchestrator->run(new SubscribeRequest('user@example.com', 'owner/repo'));
+        } catch (SagaCompensatedException) {
+        }
+    }
+
+    #[Test]
+    public function transactionalIsNeverInvokedOnTheHappyPath(): void
+    {
+        $this->transactions = $this->createMock(TransactionManagerInterface::class);
+        $this->transactions->expects($this->never())->method('transactional');
+
+        $orchestrator = new SubscribeSagaOrchestrator(
+            $this->subscriptionRepository,
+            $this->sagaRepository,
+            $this->mailer,
+            new TokenGenerator(),
+            $this->transactions,
+        );
+
+        $orchestrator->run(new SubscribeRequest('user@example.com', 'owner/repo'));
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -149,12 +193,16 @@ final class SubscribeSagaOrchestratorTest extends TestCase
         $this->subscriptionRepository = $this->createMock(SubscriptionRepositoryInterface::class);
         $this->sagaRepository         = $this->createMock(SagaRepositoryInterface::class);
         $this->mailer                 = $this->createMock(ConfirmationMailerInterface::class);
+        $this->transactions           = $this->createMock(TransactionManagerInterface::class);
+        $this->transactions->method('transactional')
+            ->willReturnCallback(static fn (callable $operation): mixed => $operation());
 
         $this->orchestrator = new SubscribeSagaOrchestrator(
             $this->subscriptionRepository,
             $this->sagaRepository,
             $this->mailer,
             new TokenGenerator(),
+            $this->transactions,
         );
     }
 }

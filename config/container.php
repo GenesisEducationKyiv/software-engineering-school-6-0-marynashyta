@@ -3,12 +3,13 @@
 declare(strict_types=1);
 
 use App\Bootstrap\Middleware\ApiKeyMiddleware;
+use App\Modules\GitHub\Domain\Event\GitHubApiCallRecorded;
 use App\Modules\GitHub\Domain\ReleaseUrlBuilderInterface;
 use App\Modules\GitHub\Infrastructure\GitHubReleaseUrlBuilder;
 use App\Modules\GitHub\Infrastructure\GitHubService;
 use App\Modules\GitHub\Domain\GitHubServiceInterface;
-use App\Modules\Notification\Domain\ConfirmationMailerInterface;
-use App\Modules\Notification\Domain\NotificationMailerInterface;
+use App\Modules\Notification\Application\ConfirmationMailerInterface;
+use App\Modules\Notification\Application\NotificationMailerInterface;
 use App\Modules\Notification\Infrastructure\EmailService;
 use App\Modules\Notification\Infrastructure\Amqp\AmqpConfig;
 use App\Modules\Notification\Infrastructure\Amqp\AmqpConfirmationMailer;
@@ -21,6 +22,7 @@ use App\Modules\Observability\Domain\ActiveSubscriptionCounterInterface;
 use App\Modules\Observability\Domain\MetricsCollectorInterface;
 use App\Modules\Observability\Domain\MetricsRendererInterface;
 use App\Modules\Observability\Infrastructure\DatabaseSubscriptionCounter;
+use App\Modules\Observability\Infrastructure\Listener\GitHubApiCallMetricsListener;
 use App\Modules\Observability\Infrastructure\MetricsCollector;
 use App\Modules\Observability\Infrastructure\PrometheusRenderer;
 use App\Modules\Scanner\Domain\LoggerInterface;
@@ -39,7 +41,11 @@ use App\Modules\Subscription\Infrastructure\Persistence\SubscriptionRepository;
 use App\SharedKernel\Infrastructure\Cache\CacheInterface;
 use App\SharedKernel\Infrastructure\Cache\RedisCache;
 use App\SharedKernel\Infrastructure\Database\Connection;
+use App\SharedKernel\Infrastructure\Database\PdoTransactionManager;
+use App\SharedKernel\Infrastructure\Database\TransactionManagerInterface;
 use App\SharedKernel\Infrastructure\Env;
+use App\SharedKernel\Infrastructure\Event\EventDispatcherInterface;
+use App\SharedKernel\Infrastructure\Event\SimpleEventDispatcher;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
 use Monolog\Formatter\JsonFormatter;
@@ -53,6 +59,8 @@ use Psr\Log\LoggerInterface as PsrLoggerInterface;
 
 return [
     PDO::class => fn (): PDO => Connection::getInstance(),
+
+    TransactionManagerInterface::class => \DI\autowire(PdoTransactionManager::class),
 
     RedisCache::class => fn (): RedisCache => RedisCache::create(
         host: Env::string('REDIS_HOST', 'redis'),
@@ -75,19 +83,28 @@ return [
     GitHubService::class => function (ContainerInterface $c): GitHubService {
         /** @var CacheInterface $cache */
         $cache = $c->get(CacheInterface::class);
-        /** @var MetricsCollectorInterface $metrics */
-        $metrics = $c->get(MetricsCollectorInterface::class);
+        /** @var EventDispatcherInterface $events */
+        $events = $c->get(EventDispatcherInterface::class);
         $token = Env::string('GITHUB_TOKEN');
         return new GitHubService(
-            client:  new Client(['timeout' => 10.0]),
-            token:   $token !== '' ? $token : null,
-            cache:   $cache,
-            metrics: $metrics,
+            client: new Client(['timeout' => 10.0]),
+            token:  $token !== '' ? $token : null,
+            cache:  $cache,
+            events: $events,
         );
     },
     GitHubServiceInterface::class => \DI\get(GitHubService::class),
 
     MetricsCollectorInterface::class => \DI\get(MetricsCollector::class),
+
+    EventDispatcherInterface::class => function (ContainerInterface $c): EventDispatcherInterface {
+        $dispatcher = new SimpleEventDispatcher();
+        /** @var GitHubApiCallMetricsListener $githubApiCallMetricsListener */
+        $githubApiCallMetricsListener = $c->get(GitHubApiCallMetricsListener::class);
+        $dispatcher->subscribe(GitHubApiCallRecorded::class, $githubApiCallMetricsListener);
+        return $dispatcher;
+    },
+    GitHubApiCallMetricsListener::class => \DI\autowire(),
 
     EmailService::class => function (ContainerInterface $c): EmailService {
         /** @var SmtpConfig $smtp */
@@ -157,7 +174,9 @@ return [
         $mailer = $c->get(ConfirmationMailerInterface::class);
         /** @var TokenGeneratorInterface $tokenGenerator */
         $tokenGenerator = $c->get(TokenGeneratorInterface::class);
-        return new SubscribeSagaOrchestrator($subscriptionRepo, $sagaRepo, $mailer, $tokenGenerator);
+        /** @var TransactionManagerInterface $transactions */
+        $transactions = $c->get(TransactionManagerInterface::class);
+        return new SubscribeSagaOrchestrator($subscriptionRepo, $sagaRepo, $mailer, $tokenGenerator, $transactions);
     },
 
     SubscriptionServiceInterface::class => \DI\get(SubscriptionService::class),

@@ -23,7 +23,10 @@ declare(strict_types=1);
 
 const LAYER_NAMES = ['Domain', 'Application', 'Infrastructure', 'Presentation', 'Shared'];
 
-/** @return array{manifest:string,check:bool,allowMissing:bool} */
+/**
+ * @param list<string> $argv
+ * @return array{manifest:string,check:bool,allowMissing:bool}
+ */
 function parseArgs(array $argv): array
 {
     $opts = ['manifest' => getcwd() . '/architecture.php', 'check' => false, 'allowMissing' => false];
@@ -47,6 +50,42 @@ function nodeId(string $name): string
     return preg_replace('/[^A-Za-z0-9]/', '', $name) ?: 'node';
 }
 
+function str(mixed $v): string
+{
+    return is_scalar($v) ? (string) $v : '';
+}
+
+/**
+ * @return list<array<int|string,mixed>>
+ */
+function arrOfArrays(mixed $v): array
+{
+    if (!is_array($v)) {
+        return [];
+    }
+    $out = [];
+    foreach ($v as $item) {
+        if (is_array($item)) {
+            $out[] = $item;
+        }
+    }
+    return $out;
+}
+
+/**
+ * @param array<int|string,mixed> $e
+ * @return Edge
+ */
+function toEdge(array $e): array
+{
+    return [
+        'from'  => str($e['from'] ?? ''),
+        'to'    => str($e['to'] ?? ''),
+        'via'   => str($e['via'] ?? ''),
+        'style' => str($e['style'] ?? ''),
+    ];
+}
+
 /**
  * Detect layers present under a source tree and count *.php files in each.
  * @return array<string,int>
@@ -62,7 +101,7 @@ function scanLayers(string $srcPath): array
         $count = 0;
         $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS));
         foreach ($it as $file) {
-            if ($file->isFile() && strtolower($file->getExtension()) === 'php') {
+            if ($file instanceof SplFileInfo && $file->isFile() && strtolower($file->getExtension()) === 'php') {
                 $count++;
             }
         }
@@ -122,12 +161,15 @@ function extractC4Diagrams(string $docFile): array
     return $diagrams;
 }
 
-/** @return array{name:string,owner:string,namespace:string,root:string,src:?string,doc:?string,layers:array<string,int>,overview:string,diagrams:array<string,string>,problems:string[],group:?string,isShared:bool} */
+/**
+ * @param array<int|string,mixed> $unit
+ * @return Node
+ */
 function inspectUnit(array $unit, bool $isShared = false): array
 {
-    $root = rtrim((string) $unit['path'], '/');
-    $srcPath = $root . '/' . ltrim((string) ($unit['src'] ?? 'src'), '/');
-    $docFile = $root . '/' . ltrim((string) ($unit['docs'] ?? 'docs/architecture/ARCHITECTURE.md'), '/');
+    $root = rtrim(str($unit['path'] ?? ''), '/');
+    $srcPath = $root . '/' . ltrim(str($unit['src'] ?? 'src'), '/');
+    $docFile = $root . '/' . ltrim(str($unit['docs'] ?? 'docs/architecture/ARCHITECTURE.md'), '/');
 
     $problems = [];
     if (!is_dir($root)) {
@@ -140,9 +182,9 @@ function inspectUnit(array $unit, bool $isShared = false): array
     }
 
     return [
-        'name'      => (string) $unit['name'],
-        'owner'     => (string) ($unit['owner'] ?? '—'),
-        'namespace' => (string) ($unit['namespace'] ?? '—'),
+        'name'      => str($unit['name'] ?? ''),
+        'owner'     => str($unit['owner'] ?? '—'),
+        'namespace' => str($unit['namespace'] ?? '—'),
         'root'      => $root,
         'src'       => is_dir($srcPath) ? $srcPath : null,
         'doc'       => is_file($docFile) ? $docFile : null,
@@ -150,7 +192,7 @@ function inspectUnit(array $unit, bool $isShared = false): array
         'overview'  => extractOverview($docFile),
         'diagrams'  => is_file($docFile) ? extractC4Diagrams($docFile) : [],
         'problems'  => $problems,
-        'group'     => isset($unit['group']) ? (string) $unit['group'] : null,
+        'group'     => isset($unit['group']) ? str($unit['group']) : null,
         'isShared'  => $isShared,
         'isExternal' => false,
     ];
@@ -161,12 +203,13 @@ function inspectUnit(array $unit, bool $isShared = false): array
  * platform depends on but doesn't own the code or docs for). No src/docs to verify; it exists
  * on the landscape purely so edges can point at it and so it renders distinctly from a
  * service the platform actually owns.
- * @return array{name:string,owner:string,namespace:string,root:string,src:?string,doc:?string,layers:array<string,int>,overview:string,diagrams:array<string,string>,problems:string[],group:?string,isShared:bool,isExternal:bool}
+ * @param array<int|string,mixed> $ext
+ * @return Node
  */
 function inspectExternal(array $ext): array
 {
     return [
-        'name'       => (string) $ext['name'],
+        'name'       => str($ext['name'] ?? ''),
         'owner'      => '—',
         'namespace'  => '—',
         'root'       => '',
@@ -176,21 +219,24 @@ function inspectExternal(array $ext): array
         'overview'   => '',
         'diagrams'   => [],
         'problems'   => [],
-        'group'      => isset($ext['group']) ? (string) $ext['group'] : null,
+        'group'      => isset($ext['group']) ? str($ext['group']) : null,
         'isShared'   => false,
         'isExternal' => true,
     ];
 }
 
-/** Render one node with a shape that hints at its kind: cylinder for the shared/contracts
+/**
+ * Render one node with a shape that hints at its kind: cylinder for the shared/contracts
  * tree (a library, not a running process), stadium for a deployable service, hexagon for an
- * external system the platform doesn't own. */
+ * external system the platform doesn't own.
+ * @param Node $n
+ */
 function renderNodeShape(array $n): string
 {
     $label = $n['owner'] !== '—' ? $n['name'] . '<br/><small>' . $n['owner'] . '</small>' : $n['name'];
     $id = nodeId($n['name']);
 
-    if ($n['isExternal'] ?? false) {
+    if ($n['isExternal']) {
         return sprintf('%s{{"%s"}}', $id, $label);
     }
 
@@ -199,11 +245,19 @@ function renderNodeShape(array $n): string
         : sprintf('%s(["%s"])', $id, $label);
 }
 
+/**
+ * @param Node[] $nodes
+ * @param Edge[] $edges
+ */
 function renderMermaid(array $nodes, array $edges): string
 {
+    $themeVariables = "{'background':'#0d1117','primaryColor':'#161b22','primaryTextColor':'#e6edf3',"
+        . "'primaryBorderColor':'#58a6ff','lineColor':'#8b949e','secondaryColor':'#161b22',"
+        . "'tertiaryColor':'#0f1420','tertiaryTextColor':'#c9d1d9','tertiaryBorderColor':'#30363d',"
+        . "'fontFamily':'Arial'}";
     $lines = [
         '```mermaid',
-        "%%{init: {'theme':'base', 'themeVariables': {'background':'#0d1117','primaryColor':'#161b22','primaryTextColor':'#e6edf3','primaryBorderColor':'#58a6ff','lineColor':'#8b949e','secondaryColor':'#161b22','tertiaryColor':'#0f1420','tertiaryTextColor':'#c9d1d9','tertiaryBorderColor':'#30363d','fontFamily':'Arial'}}}%%",
+        "%%{init: {'theme':'base', 'themeVariables': {$themeVariables}}}%%",
         'flowchart LR',
     ];
 
@@ -228,7 +282,10 @@ function renderMermaid(array $nodes, array $edges): string
             $lines[] = '        ' . renderNodeShape($n);
         }
         $lines[] = '    end';
-        $lines[] = sprintf('    style %s fill:#0f1420,stroke:#f0883e,stroke-width:2px,color:#e6edf3', nodeId($groupName));
+        $lines[] = sprintf(
+            '    style %s fill:#0f1420,stroke:#f0883e,stroke-width:2px,color:#e6edf3',
+            nodeId($groupName)
+        );
     }
     foreach ($ungrouped as $n) {
         $lines[] = '    ' . renderNodeShape($n);
@@ -244,7 +301,7 @@ function renderMermaid(array $nodes, array $edges): string
 
     $lines[] = '';
     foreach ($nodes as $n) {
-        $cls = ($n['isExternal'] ?? false) ? 'external' : ($n['isShared'] ? 'shared' : 'service');
+        $cls = $n['isExternal'] ? 'external' : ($n['isShared'] ? 'shared' : 'service');
         $lines[] = sprintf('    class %s %s;', nodeId($n['name']), $cls);
     }
 
@@ -280,9 +337,15 @@ function relativePath(string $to, string $fromDir): string
     return str_repeat('../', count($from)) . implode('/', $dest);
 }
 
+/**
+ * @param array<string,mixed> $manifest
+ * @param Node[] $units
+ * @param Node[] $externals
+ * @param Edge[] $edges
+ */
 function renderDocument(array $manifest, array $units, array $externals, array $edges, string $outDir): string
 {
-    $platform = (string) ($manifest['platform'] ?? 'Platform');
+    $platform = str($manifest['platform'] ?? 'Platform');
     $now = date('Y-m-d H:i');
 
     $out = [];
@@ -305,13 +368,11 @@ function renderDocument(array $manifest, array $units, array $externals, array $
     $out[] = '| Service | Owner | Namespace | Layers present | Docs |';
     $out[] = '|---|---|---|---|---|';
     foreach ($units as $u) {
-        $layers = $u['layers'] === []
-            ? '—'
-            : implode(', ', array_map(
-                static fn (string $l, int $c): string => "{$l} ({$c})",
-                array_keys($u['layers']),
-                array_values($u['layers'])
-            ));
+        $layerParts = [];
+        foreach ($u['layers'] as $l => $c) {
+            $layerParts[] = "{$l} ({$c})";
+        }
+        $layers = $layerParts === [] ? '—' : implode(', ', $layerParts);
         $rel = $u['doc'] !== null ? relativePath($u['doc'], $outDir) : null;
         $docLink = $rel !== null ? "[ARCHITECTURE.md]({$rel})" : '**missing**';
         $out[] = "| {$u['name']} | {$u['owner']} | `{$u['namespace']}` | {$layers} | {$docLink} |";
@@ -361,19 +422,20 @@ if (!is_file($opts['manifest'])) {
     exit(2);
 }
 
-/** @var array $manifest */
+/** @var array<string,mixed> $manifest */
 $manifest = require $opts['manifest'];
 
 $units = [];
-if (!empty($manifest['shared'])) {
-    $units[] = inspectUnit($manifest['shared'], isShared: true);
+$shared = $manifest['shared'] ?? null;
+if (is_array($shared) && $shared !== []) {
+    $units[] = inspectUnit($shared, isShared: true);
 }
-foreach (($manifest['services'] ?? []) as $service) {
+foreach (arrOfArrays($manifest['services'] ?? null) as $service) {
     $units[] = inspectUnit($service);
 }
 
 $externals = [];
-foreach (($manifest['externals'] ?? []) as $external) {
+foreach (arrOfArrays($manifest['externals'] ?? null) as $external) {
     $externals[] = inspectExternal($external);
 }
 
@@ -385,7 +447,7 @@ foreach ($units as $u) {
         $problems[] = "[{$u['name']}] {$p}";
     }
 }
-$edges = $manifest['edges'] ?? [];
+$edges = array_map('toEdge', arrOfArrays($manifest['edges'] ?? null));
 foreach ($edges as $e) {
     foreach (['from', 'to'] as $end) {
         if (!in_array($e[$end], $names, true)) {
@@ -394,7 +456,11 @@ foreach ($edges as $e) {
     }
 }
 
-fwrite(STDOUT, 'Inspected ' . count($units) . ' unit(s) and ' . count($externals) . ' external(s): ' . implode(', ', $names) . "\n");
+fwrite(
+    STDOUT,
+    'Inspected ' . count($units) . ' unit(s) and ' . count($externals) . ' external(s): '
+        . implode(', ', $names) . "\n"
+);
 
 if ($problems !== []) {
     fwrite(STDERR, "\nProblems detected:\n");
@@ -408,12 +474,15 @@ if ($problems !== []) {
     fwrite(STDERR, "\nContinuing despite problems (--allow-missing).\n");
 }
 
-$outPathPreview = (string) ($manifest['output'] ?? (dirname($opts['manifest']) . '/docs/LANDSCAPE.md'));
+$outPathDefault = dirname($opts['manifest']) . '/docs/LANDSCAPE.md';
+$outPathPreview = isset($manifest['output']) ? str($manifest['output']) : $outPathDefault;
 $document = renderDocument($manifest, $units, $externals, $edges, dirname($outPathPreview));
 
 if ($opts['check']) {
-    fwrite(STDOUT, "Check mode: manifest valid, document not written.\n");
-    exit($problems !== [] && !$opts['allowMissing'] ? 1 : 0);
+    fwrite(STDOUT, $problems === []
+        ? "Check mode: manifest valid, document not written.\n"
+        : "Check mode: manifest has problems (see above), document not written.\n");
+    exit($problems === [] ? 0 : 1);
 }
 
 $outPath = $outPathPreview;

@@ -25,6 +25,27 @@ jobs:
       - name: Run PHPCS
         run: vendor/bin/phpcs
 
+  # ── Job 1b: Architecture — layer boundaries, rules, service boundaries ─────
+  architecture:
+    name: Architecture (layers, rules, service boundaries)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/php-setup
+
+      - name: Deptrac — monolith layer boundaries
+        run: vendor/bin/deptrac analyse --no-progress --fail-on-uncovered
+
+      - name: PHPArkitect — fine-grained rules
+        run: vendor/bin/phparkitect check
+
+      - name: Deptrac — cross-service boundaries
+        run: vendor/bin/deptrac analyse --config-file=deptrac.services.yaml --no-progress --fail-on-uncovered
+
+      - name: Compile architecture — validate manifest
+        run: php bin/compile-architecture.php --manifest=architecture.php --check
+
   # ── Job 2: Validate compose & config files ─────────────────────────────────
   validate-configs:
     name: Validate Compose & Prometheus Config

@@ -1,0 +1,93 @@
+# Deptrac configuration — enforces the Dependency Rule (see docs/architecture/ARCHITECTURE.md
+# section 5 and ADR-0001). Layers are matched on the exact FQCN rather than on top-level
+# folders: this service is organised around one port (MailerInterface) shared by two delivery
+# mechanisms (HTTP handlers, an AMQP consumer pipeline), not Domain/Application/... folders.
+# Run: vendor/bin/deptrac analyse --fail-on-uncovered
+
+deptrac:
+  paths:
+    - ./src
+
+  layers:
+    # The mailer port and the one business rule that belongs to neither delivery mechanism.
+    - name: Domain
+      collectors:
+        - type: classLike
+          value: ^NotificationService\\MailerInterface$
+        - type: classLike
+          value: ^NotificationService\\Consumer\\RetryPolicy$
+
+    # The transport-agnostic use case: parse an inbound message, call the port.
+    - name: Application
+      collectors:
+        - type: classLike
+          value: ^NotificationService\\Consumer\\MessageHandler$
+
+    # The port's only adapter, the AMQP queue mechanics, typed settings, and the third-party
+    # libraries they wrap.
+    - name: Infrastructure
+      collectors:
+        - type: classLike
+          value: ^NotificationService\\Mailer$
+        - type: classLike
+          value: ^NotificationService\\Consumer\\MessageProcessor$
+        - type: classLike
+          value: ^NotificationService\\Consumer\\NotificationConsumer$
+        - type: classLike
+          value: ^NotificationService\\Config\\SmtpConfig$
+        - type: classLike
+          value: ^NotificationService\\Config\\AmqpConfig$
+        - type: classLike
+          value: ^PhpAmqpLib\\.*
+        - type: classLike
+          value: ^PHPMailer\\PHPMailer\\PHPMailer$
+
+    # HTTP request/response mapping: the two send-mail routes, health checks, and logging.
+    - name: Presentation
+      collectors:
+        - type: classLike
+          value: ^NotificationService\\Handler\\.*
+        - type: classLike
+          value: ^NotificationService\\Health\\.*
+        - type: classLike
+          value: ^NotificationService\\Middleware\\.*
+        - type: classLike
+          value: ^Psr\\Http\\Message\\.*
+        - type: classLike
+          value: ^Psr\\Http\\Server\\.*
+
+    # Tiny cross-cutting kernel: the env reader, the logging contract, and the checked
+    # exception MailerInterface's own contract declares (see ARCHITECTURE.md section 5).
+    - name: Shared
+      collectors:
+        - type: classLike
+          value: ^NotificationService\\Config\\Env$
+        - type: classLike
+          value: ^Psr\\Log\\.*
+        - type: classLike
+          value: ^PHPMailer\\PHPMailer\\Exception$
+
+  ruleset:
+    # The core: business rules depend on nothing but the shared kernel.
+    Domain:
+      - Shared
+
+    # The use case orchestrates via the port; no adapters, no delivery.
+    Application:
+      - Domain
+      - Shared
+
+    # Adapters implement the inward-facing port.
+    Infrastructure:
+      - Application
+      - Domain
+      - Shared
+
+    # Delivery triggers the use case / port and reads domain value objects.
+    Presentation:
+      - Application
+      - Domain
+      - Shared
+
+    # The kernel depends on nothing internal.
+    Shared: ~

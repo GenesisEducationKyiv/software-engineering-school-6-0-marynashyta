@@ -1,0 +1,125 @@
+# Deptrac configuration — enforces the Dependency Rule INSIDE the API monolith (see
+# docs/architecture/domain-map.md section 4 "Components (C4 L3)" and section 8 "Assessment").
+# Complements deptrac.services.yaml, which enforces the boundary BETWEEN services; this file
+# enforces the boundary BETWEEN layers within a single service (App\.*).
+#
+# The monolith is organised feature-first (src/Modules/{GitHub,Notification,Observability,
+# Subscription}), each internally split into Domain/Application/Infrastructure folders —
+# except two modules that skip a layer they don't need: GitHub has no Application (the port
+# lives directly in Domain), Notification has no Domain (its port and value objects live in
+# Application). Layers are matched by namespace, not folder name, because Infrastructure/Http/
+# holds two different things depending on the module: inbound HTTP controllers (Subscription,
+# Observability — these are Presentation) vs. an outbound HTTP mailer adapter (Notification —
+# this is Infrastructure, since it implements a port rather than receiving a request).
+#
+# Run: vendor/bin/deptrac analyse --fail-on-uncovered
+
+deptrac:
+  paths:
+    - ./src
+
+  # src/Modules/Scanner/* is dead code: superseded by scanner-service, not wired into
+  # docker-compose.yml or config/container.php (see domain-map.md § 7 Pain Point Inventory —
+  # "safe to delete; nothing depends on it"). Excluded rather than modelled as a layer so a
+  # class slated for deletion doesn't shape the ruleset; delete this exclusion along with the
+  # directory once the dead code is removed.
+  exclude_files:
+    - '#src/Modules/Scanner/.*#'
+
+  layers:
+    # Value objects, domain events, domain exceptions, and the ports that live directly in a
+    # module's Domain/ folder (GitHub, Observability, Subscription only — Notification's ports
+    # live in Application/, see above).
+    - name: Domain
+      collectors:
+        - type: classLike
+          value: ^App\\Modules\\GitHub\\Domain\\.*
+        - type: classLike
+          value: ^App\\Modules\\Observability\\Domain\\.*
+        - type: classLike
+          value: ^App\\Modules\\Subscription\\Domain\\.*
+
+    # Use cases/services and the ports that live in a module's Application/ folder
+    # (Notification, Subscription only — GitHub and Observability have no Application layer).
+    - name: Application
+      collectors:
+        - type: classLike
+          value: ^App\\Modules\\Notification\\Application\\.*
+        - type: classLike
+          value: ^App\\Modules\\Subscription\\Application\\.*
+
+    # Adapters, persistence, and the third-party clients they wrap. Notification's
+    # Infrastructure/Http/ is included whole: HttpConfirmationMailer/HttpNotificationMailer are
+    # outbound adapters implementing ConfirmationMailerInterface/NotificationMailerInterface,
+    # not request handlers. Observability's and Subscription's Infrastructure/Http/ are
+    # excluded here because they hold inbound controllers/middleware (see Presentation below).
+    - name: Infrastructure
+      collectors:
+        - type: classLike
+          value: ^App\\Modules\\GitHub\\Infrastructure\\.*
+        - type: classLike
+          value: ^App\\Modules\\Notification\\Infrastructure\\.*
+        - type: classLike
+          value: ^App\\Modules\\Observability\\Infrastructure\\(?!Http\\).*
+        - type: classLike
+          value: ^App\\Modules\\Subscription\\Infrastructure\\(?!Http\\).*
+        - type: classLike
+          value: ^GuzzleHttp\\.*
+        - type: classLike
+          value: ^PhpAmqpLib\\.*
+        - type: classLike
+          value: ^PHPMailer\\PHPMailer\\.*
+
+    # Inbound HTTP: controllers, the metrics middleware, and the composition root's
+    # cross-cutting middleware (auth, CORS, logging) — these receive a request and delegate
+    # to Application, they don't implement a port.
+    - name: Presentation
+      collectors:
+        - type: classLike
+          value: ^App\\Modules\\Observability\\Infrastructure\\Http\\.*
+        - type: classLike
+          value: ^App\\Modules\\Subscription\\Infrastructure\\Http\\.*
+        - type: classLike
+          value: ^App\\Bootstrap\\Middleware\\.*
+        - type: classLike
+          value: ^Psr\\Http\\Message\\.*
+        - type: classLike
+          value: ^Psr\\Http\\Server\\.*
+        - type: classLike
+          value: ^Slim\\Psr7\\.*
+
+    # Cross-cutting kernel with no domain logic (see domain-map.md § 8): the transaction
+    # manager, the in-process event bus, cache/env/json helpers. Every layer may depend on it.
+    - name: Shared
+      collectors:
+        - type: classLike
+          value: ^App\\SharedKernel\\.*
+        - type: classLike
+          value: ^Psr\\Log\\.*
+        - type: classLike
+          value: ^Predis\\.*
+
+  ruleset:
+    # The core: business rules depend on nothing but the shared kernel.
+    Domain:
+      - Shared
+
+    # Use cases orchestrate via ports; no adapters, no delivery.
+    Application:
+      - Domain
+      - Shared
+
+    # Adapters implement inward-facing ports.
+    Infrastructure:
+      - Application
+      - Domain
+      - Shared
+
+    # Delivery triggers the use case / port and reads domain value objects.
+    Presentation:
+      - Application
+      - Domain
+      - Shared
+
+    # The kernel depends on nothing internal.
+    Shared: ~

@@ -1,0 +1,27 @@
+name: Architecture
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  architecture:
+    name: Layer boundaries & rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Deptrac — layer boundaries
+        run: vendor/bin/deptrac analyse --no-progress --fail-on-uncovered
+
+      - name: PHPArkitect — fine-grained rules
+        run: vendor/bin/phparkitect check

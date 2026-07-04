@@ -1,0 +1,21 @@
+# Platform landscape — copy to .github/workflows/landscape.yml
+# Validates the manifest and recompiles the landscape on every push and PR.
+name: Landscape
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  landscape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        # In a polyrepo, also check out the service repos (e.g. via a matrix or submodules)
+        # so the compiler can see their src/ and docs/. Otherwise run with --allow-missing.
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+      - name: Compile landscape (validates services + docs)
+        run: php bin/compile-architecture.php --manifest=architecture.php --allow-missing

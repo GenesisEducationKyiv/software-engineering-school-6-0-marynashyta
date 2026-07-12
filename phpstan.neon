@@ -6,6 +6,9 @@ parameters:
         - public
     excludePaths:
         - vendor
+    typeAliases:
+        Node: 'array{name: string, owner: string, namespace: string, root: string, src: string|null, doc: string|null, layers: array<string, int>, overview: string, diagrams: array<string, string>, problems: string[], group: string|null, isShared: bool, isExternal: bool}'
+        Edge: 'array{from: string, to: string, via: string, style: string}'
     ignoreErrors:
         # bin/scanner.php is an intentional long-running daemon; while(true) is correct here
         - identifier: while.alwaysTrue

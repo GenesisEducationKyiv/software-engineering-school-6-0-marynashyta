@@ -96,30 +96,15 @@ services:
     restart: unless-stopped
 
   scanner:
-    build: .
-    command: ["php", "/var/www/html/bin/scanner.php"]
+    build: ./scanner-service
     env_file: .env
     environment:
-      DB_HOST: db
-      DB_PORT: 3306
-      MAIL_HOST: mailpit
-      MAIL_PORT: 1025
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_DB: 0
-      APP_URL: http://localhost:8080
-      SCANNER_INTERVAL: 300
-      MAIL_FROM_ADDRESS: noreply@releases-api.app
-      MAIL_FROM_NAME: "Release Notifications"
-      NOTIFICATION_SERVICE_URL: http://notification:80
+      API_BASE_URL: http://api:80
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
+      SCANNER_INTERVAL: 300
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      notification:
+      api:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy

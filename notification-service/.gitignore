@@ -9,6 +9,7 @@
 
 /.phpunit.cache/
 /.phpunit.result.cache
+/.deptrac.cache
 /coverage/
 /coverage.xml
 

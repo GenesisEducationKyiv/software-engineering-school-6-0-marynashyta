@@ -6,6 +6,7 @@
 
 /.phpstan/
 /phpstan.cache
+/.deptrac.cache
 
 /.phpunit.cache/
 /.phpunit.result.cache
@@ -22,3 +23,8 @@ Thumbs.db
 
 *.log
 /logs/
+
+/tests/E2E/screenshots
+
+scanner-service/vendor
+.phpunit.result.cache

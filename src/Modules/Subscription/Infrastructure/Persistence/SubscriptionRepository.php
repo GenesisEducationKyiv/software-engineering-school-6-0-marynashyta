@@ -78,6 +78,13 @@ final class SubscriptionRepository implements SubscriptionRepositoryInterface, S
         )->execute([$id]);
     }
 
+    public function deleteByEmailAndRepo(string $email, string $repo): void
+    {
+        $this->db->prepare(
+            'DELETE FROM subscriptions WHERE email = ? AND repo = ?'
+        )->execute([$email, $repo]);
+    }
+
     /** @return list<Subscription> */
     public function findConfirmedByEmail(string $email): array
     {

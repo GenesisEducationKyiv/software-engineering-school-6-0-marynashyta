@@ -4,45 +4,46 @@ declare(strict_types=1);
 
 namespace App\Modules\Subscription\Application;
 
-use App\Modules\Subscription\Application\Acl\ConfirmationGatewayInterface;
-use App\Modules\Subscription\Application\Acl\RepositoryGatewayInterface;
+use App\Modules\GitHub\Domain\Exception\InvalidRepositoryFormatException;
+use App\Modules\GitHub\Domain\Exception\RateLimitException;
+use App\Modules\GitHub\Domain\Exception\RepositoryNotFoundException;
+use App\Modules\GitHub\Domain\GitHubServiceInterface;
+use App\Modules\Subscription\Application\Saga\SubscribeSagaOrchestratorInterface;
 use App\Modules\Subscription\Domain\Exception\AlreadySubscribedException;
+use App\Modules\Subscription\Domain\Exception\SagaCompensatedException;
 use App\Modules\Subscription\Domain\Exception\TokenNotFoundException;
 use App\Modules\Subscription\Domain\Exception\ValidationException;
 use App\Modules\Subscription\Domain\Subscription;
 use App\Modules\Subscription\Domain\SubscriptionRepositoryInterface;
-use App\SharedKernel\Domain\HttpExceptionInterface;
 
 final class SubscriptionService implements SubscriptionServiceInterface
 {
     public function __construct(
         private readonly SubscriptionRepositoryInterface $repository,
-        private readonly RepositoryGatewayInterface $repositoryGateway,
-        private readonly ConfirmationGatewayInterface $confirmationGateway,
-        private readonly TokenGeneratorInterface $tokenGenerator,
+        private readonly GitHubServiceInterface $github,
+        private readonly SubscribeSagaOrchestratorInterface $orchestrator,
     ) {
     }
 
     /**
      * @throws ValidationException
-     * @throws HttpExceptionInterface
+     * @throws InvalidRepositoryFormatException
+     * @throws RepositoryNotFoundException
+     * @throws RateLimitException
      * @throws AlreadySubscribedException
+     * @throws SagaCompensatedException
      */
     public function subscribe(SubscribeRequest $request): void
     {
         $this->assertValidEmail($request->email);
 
-        $this->repositoryGateway->assertRepositoryExists($request->repo);
+        $this->github->validateRepository($request->repo);
 
         if ($this->repository->existsByEmailAndRepo($request->email, $request->repo)) {
             throw new AlreadySubscribedException($request->email, $request->repo);
         }
 
-        $confirmToken     = $this->tokenGenerator->generate();
-        $unsubscribeToken = $this->tokenGenerator->generate();
-
-        $this->repository->create($request->email, $request->repo, $confirmToken, $unsubscribeToken);
-        $this->confirmationGateway->sendConfirmation($request->email, $request->repo, $confirmToken, $unsubscribeToken);
+        $this->orchestrator->run($request);
     }
 
     /**
@@ -62,9 +63,7 @@ final class SubscriptionService implements SubscriptionServiceInterface
             return;
         }
 
-        // Snapshot the current latest release so the subscriber is not notified
-        // about releases that already existed at the time of subscription.
-        $latestTag = $this->repositoryGateway->findLatestReleaseTag($subscription->repo);
+        $latestTag = $this->github->getLatestRelease($subscription->repo);
 
         $this->repository->confirm($subscription->id, $latestTag);
     }

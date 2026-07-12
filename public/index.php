@@ -7,6 +7,7 @@ use App\Bootstrap\Middleware\CorsMiddleware;
 use App\Bootstrap\Middleware\LoggingMiddleware;
 use App\Modules\Observability\Infrastructure\Http\MetricsController;
 use App\Modules\Observability\Infrastructure\Http\MetricsMiddleware;
+use App\Modules\Subscription\Infrastructure\Http\InternalSubscriptionController;
 use App\Modules\Subscription\Infrastructure\Http\SubscriptionController;
 use App\SharedKernel\Infrastructure\Env;
 use Slim\Factory\AppFactory;
@@ -42,5 +43,8 @@ $app->get('/api/confirm/{token}', [SubscriptionController::class, 'confirm']);
 $app->get('/api/unsubscribe/{token}', [SubscriptionController::class, 'unsubscribe']);
 $app->get('/api/subscriptions', [SubscriptionController::class, 'getSubscriptions']);
 $app->get('/metrics', [MetricsController::class, 'metrics']);
+
+$app->get('/internal/subscriptions/confirmed', [InternalSubscriptionController::class, 'confirmed']);
+$app->patch('/internal/subscriptions/{id}/last-seen-tag', [InternalSubscriptionController::class, 'updateLastSeenTag']);
 
 $app->run();

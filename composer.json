@@ -19,7 +19,9 @@
         "mockery/mockery": "^1.6",
         "phpstan/phpstan": "^2.0",
         "squizlabs/php_codesniffer": "^4.0",
-        "playwright-php/playwright": "^1.2"
+        "playwright-php/playwright": "^1.2",
+        "deptrac/deptrac": "^4.6",
+        "phparkitect/phparkitect": "^1.2"
     },
     "autoload": {
         "psr-4": {
@@ -43,6 +45,11 @@
         "lint": "phpstan analyse",
         "cs": "phpcs",
         "cs-fix": "phpcbf",
-        "start": "php -S localhost:8080 -t public"
+        "start": "php -S localhost:8080 -t public",
+        "arch:layers": "deptrac analyse --no-progress --fail-on-uncovered",
+        "arch:rules": "phparkitect check",
+        "arch:services": "deptrac analyse --config-file=deptrac.services.yaml --fail-on-uncovered",
+        "arch:landscape": "php bin/compile-architecture.php --manifest=architecture.php --check",
+        "arch": ["@arch:layers", "@arch:rules", "@arch:services", "@arch:landscape"]
     }
 }

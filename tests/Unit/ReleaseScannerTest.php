@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use App\DTO\Subscription;
-use App\Exceptions\RateLimitException;
-use App\Metrics\MetricsCollectorInterface;
-use App\Repository\SubscriptionScanRepositoryInterface;
-use App\Scanner\LoggerInterface;
-use App\Scanner\ReleaseScanner;
-use App\Services\GitHubServiceInterface;
-use App\Services\NotificationMailerInterface;
+use App\Modules\GitHub\Domain\Exception\RateLimitException;
+use App\Modules\GitHub\Domain\GitHubServiceInterface;
+use App\Modules\Notification\Application\NotificationMailerInterface;
+use App\Modules\Observability\Domain\MetricsCollectorInterface;
+use App\Modules\Scanner\Application\ReleaseScanner;
+use App\Modules\Scanner\Domain\LoggerInterface;
+use App\Modules\Subscription\Domain\Subscription;
+use App\Modules\Subscription\Domain\SubscriptionScanRepositoryInterface;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;

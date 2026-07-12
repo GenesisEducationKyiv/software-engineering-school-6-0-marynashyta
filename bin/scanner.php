@@ -3,11 +3,11 @@
 
 declare(strict_types=1);
 
-use App\Cache\RedisCache;
-use App\Infrastructure\Env;
-use App\Metrics\MetricsCollectorInterface;
-use App\Scanner\EchoLogger;
-use App\Scanner\ReleaseScanner;
+use App\Modules\Observability\Domain\MetricsCollectorInterface;
+use App\Modules\Scanner\Application\ReleaseScanner;
+use App\Modules\Scanner\Infrastructure\EchoLogger;
+use App\SharedKernel\Infrastructure\Cache\RedisCache;
+use App\SharedKernel\Infrastructure\Env;
 
 require __DIR__ . '/../vendor/autoload.php';
 

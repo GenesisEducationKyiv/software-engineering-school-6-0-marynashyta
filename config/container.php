@@ -2,34 +2,44 @@
 
 declare(strict_types=1);
 
-use App\Cache\CacheInterface;
-use App\Cache\RedisCache;
-use App\Database\Connection;
-use App\DTO\SmtpConfig;
-use App\Infrastructure\Env;
-use App\Metrics\ActiveSubscriptionCounterInterface;
-use App\Metrics\DatabaseSubscriptionCounter;
-use App\Metrics\MetricsCollector;
-use App\Metrics\MetricsCollectorInterface;
-use App\Metrics\MetricsRendererInterface;
-use App\Metrics\PrometheusRenderer;
-use App\Middleware\ApiKeyMiddleware;
-use App\Repository\SubscriptionRepository;
-use App\Repository\SubscriptionRepositoryInterface;
-use App\Repository\SubscriptionScanRepositoryInterface;
-use App\Scanner\LoggerInterface;
-use App\Scanner\MonologLogger;
-use App\Services\ConfirmationMailerInterface;
-use App\Services\EmailService;
-use App\Services\GitHubReleaseUrlBuilder;
-use App\Services\GitHubService;
-use App\Services\GitHubServiceInterface;
-use App\Services\NotificationMailerInterface;
-use App\Services\ReleaseUrlBuilderInterface;
-use App\Services\SubscriptionService;
-use App\Services\SubscriptionServiceInterface;
-use App\Services\TokenGenerator;
-use App\Services\TokenGeneratorInterface;
+use App\Bootstrap\Middleware\ApiKeyMiddleware;
+use App\Modules\GitHub\Domain\Event\GitHubApiCallRecorded;
+use App\Modules\GitHub\Domain\ReleaseUrlBuilderInterface;
+use App\Modules\GitHub\Infrastructure\GitHubReleaseUrlBuilder;
+use App\Modules\GitHub\Infrastructure\GitHubService;
+use App\Modules\GitHub\Domain\GitHubServiceInterface;
+use App\Modules\Notification\Application\ConfirmationMailerInterface;
+use App\Modules\Notification\Application\NotificationMailerInterface;
+use App\Modules\Notification\Infrastructure\EmailService;
+use App\Modules\Notification\Infrastructure\Http\HttpConfirmationMailer;
+use App\Modules\Notification\Infrastructure\Http\HttpNotificationMailer;
+use App\Modules\Notification\Infrastructure\SmtpConfig;
+use App\Modules\Observability\Domain\ActiveSubscriptionCounterInterface;
+use App\Modules\Observability\Domain\MetricsCollectorInterface;
+use App\Modules\Observability\Domain\MetricsRendererInterface;
+use App\Modules\Observability\Infrastructure\DatabaseSubscriptionCounter;
+use App\Modules\Observability\Infrastructure\Listener\GitHubApiCallMetricsListener;
+use App\Modules\Observability\Infrastructure\MetricsCollector;
+use App\Modules\Observability\Infrastructure\PrometheusRenderer;
+use App\Modules\Scanner\Domain\LoggerInterface;
+use App\Modules\Scanner\Infrastructure\MonologLogger;
+use App\Modules\Subscription\Application\Acl\ConfirmationGatewayInterface;
+use App\Modules\Subscription\Application\Acl\RepositoryGatewayInterface;
+use App\Modules\Subscription\Application\TokenGenerator;
+use App\Modules\Subscription\Application\TokenGeneratorInterface;
+use App\Modules\Subscription\Application\SubscriptionService;
+use App\Modules\Subscription\Application\SubscriptionServiceInterface;
+use App\Modules\Subscription\Domain\SubscriptionRepositoryInterface;
+use App\Modules\Subscription\Domain\SubscriptionScanRepositoryInterface;
+use App\Modules\Subscription\Infrastructure\Acl\GitHubRepositoryGateway;
+use App\Modules\Subscription\Infrastructure\Acl\NotificationConfirmationGateway;
+use App\Modules\Subscription\Infrastructure\Persistence\SubscriptionRepository;
+use App\SharedKernel\Infrastructure\Cache\CacheInterface;
+use App\SharedKernel\Infrastructure\Cache\RedisCache;
+use App\SharedKernel\Infrastructure\Database\Connection;
+use App\SharedKernel\Infrastructure\Env;
+use App\SharedKernel\Infrastructure\Event\EventDispatcherInterface;
+use App\SharedKernel\Infrastructure\Event\SimpleEventDispatcher;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
 use Monolog\Formatter\JsonFormatter;
@@ -65,19 +75,28 @@ return [
     GitHubService::class => function (ContainerInterface $c): GitHubService {
         /** @var CacheInterface $cache */
         $cache = $c->get(CacheInterface::class);
-        /** @var MetricsCollectorInterface $metrics */
-        $metrics = $c->get(MetricsCollectorInterface::class);
+        /** @var EventDispatcherInterface $events */
+        $events = $c->get(EventDispatcherInterface::class);
         $token = Env::string('GITHUB_TOKEN');
         return new GitHubService(
-            client:  new Client(['timeout' => 10.0]),
-            token:   $token !== '' ? $token : null,
-            cache:   $cache,
-            metrics: $metrics,
+            client: new Client(['timeout' => 10.0]),
+            token:  $token !== '' ? $token : null,
+            cache:  $cache,
+            events: $events,
         );
     },
     GitHubServiceInterface::class => \DI\get(GitHubService::class),
 
     MetricsCollectorInterface::class => \DI\get(MetricsCollector::class),
+
+    EventDispatcherInterface::class => function (ContainerInterface $c): EventDispatcherInterface {
+        $dispatcher = new SimpleEventDispatcher();
+        /** @var GitHubApiCallMetricsListener $githubApiCallMetricsListener */
+        $githubApiCallMetricsListener = $c->get(GitHubApiCallMetricsListener::class);
+        $dispatcher->subscribe(GitHubApiCallRecorded::class, $githubApiCallMetricsListener);
+        return $dispatcher;
+    },
+    GitHubApiCallMetricsListener::class => \DI\autowire(),
 
     EmailService::class => function (ContainerInterface $c): EmailService {
         /** @var SmtpConfig $smtp */
@@ -90,8 +109,27 @@ return [
             releaseUrlBuilder: $urlBuilder,
         );
     },
-    ConfirmationMailerInterface::class  => \DI\get(EmailService::class),
-    NotificationMailerInterface::class  => \DI\get(EmailService::class),
+    HttpConfirmationMailer::class => function (ContainerInterface $c): HttpConfirmationMailer {
+        /** @var ClientInterface $http */
+        $http = $c->get(ClientInterface::class);
+        return new HttpConfirmationMailer($http, Env::string('NOTIFICATION_SERVICE_URL', 'http://notification:80'));
+    },
+    HttpNotificationMailer::class => function (ContainerInterface $c): HttpNotificationMailer {
+        /** @var ClientInterface $http */
+        $http = $c->get(ClientInterface::class);
+        return new HttpNotificationMailer($http, Env::string('NOTIFICATION_SERVICE_URL', 'http://notification:80'));
+    },
+
+    ConfirmationMailerInterface::class => function (ContainerInterface $c): ConfirmationMailerInterface {
+        return Env::string('NOTIFICATION_DRIVER') === 'http'
+            ? $c->get(HttpConfirmationMailer::class)
+            : $c->get(EmailService::class);
+    },
+    NotificationMailerInterface::class => function (ContainerInterface $c): NotificationMailerInterface {
+        return Env::string('NOTIFICATION_DRIVER') === 'http'
+            ? $c->get(HttpNotificationMailer::class)
+            : $c->get(EmailService::class);
+    },
 
     ReleaseUrlBuilderInterface::class => \DI\get(GitHubReleaseUrlBuilder::class),
     TokenGeneratorInterface::class    => \DI\get(TokenGenerator::class),
@@ -100,11 +138,17 @@ return [
     SubscriptionScanRepositoryInterface::class => \DI\get(SubscriptionRepository::class),
     SubscriptionServiceInterface::class        => \DI\get(SubscriptionService::class),
 
+    RepositoryGatewayInterface::class   => \DI\get(GitHubRepositoryGateway::class),
+    ConfirmationGatewayInterface::class => \DI\get(NotificationConfirmationGateway::class),
+
     ActiveSubscriptionCounterInterface::class => \DI\get(DatabaseSubscriptionCounter::class),
     MetricsRendererInterface::class           => \DI\get(PrometheusRenderer::class),
 
     PsrLoggerInterface::class => function (): PsrLoggerInterface {
-        $handler = new StreamHandler(Env::string('LOG_PATH', 'php://stderr'), Level::fromName(Env::string('LOG_LEVEL', 'warning')));
+        $handler = new StreamHandler(
+            Env::string('LOG_PATH', 'php://stderr'),
+            Level::fromName(Env::string('LOG_LEVEL', 'warning'))
+        );
         $handler->setFormatter(new JsonFormatter());
         $logger = new Logger(Env::string('LOG_CHANNEL', 'app'));
         $logger->pushHandler($handler);

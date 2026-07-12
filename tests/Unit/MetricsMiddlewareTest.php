@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use App\Metrics\MetricsCollectorInterface;
-use App\Middleware\MetricsMiddleware;
+use App\Modules\Observability\Domain\MetricsCollectorInterface;
+use App\Modules\Observability\Infrastructure\Http\MetricsMiddleware;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;

@@ -1,6 +1,6 @@
 # Release Notification API
 
-A monolithic PHP service that lets users subscribe to GitHub repository release notifications via email.
+A PHP service that lets users subscribe to GitHub repository release notifications via email. Email delivery runs in a standalone `notification-service` container extracted via the Strangler Fig pattern (see [ADR-003](docs/adr/0003-extract-notification-as-microservice.md)).
 
 ## How it works
 
@@ -21,13 +21,22 @@ cp .env.example .env
 docker compose up --build
 ```
 
-| Service                 | URL                          |
-| ----------------------- | ---------------------------- |
-| API                     | <http://localhost:8080>      |
-| Swagger UI              | <http://localhost:8090>      |
-| Mailpit (email preview) | <http://localhost:8025>      |
-| Prometheus              | <http://localhost:9090>      |
-| Grafana                 | <http://localhost:3000>      |
+| Service                              | URL                          |
+| ------------------------------------ | ---------------------------- |
+| API                                  | <http://localhost:8080>      |
+| Notification service                 | <http://localhost:8081>      |
+| Swagger UI (monolith)                | <http://localhost:8090>      |
+| Swagger UI (notification service)    | <http://localhost:8091>      |
+| Mailpit (email preview)              | <http://localhost:8025>      |
+| Prometheus                           | <http://localhost:9090>      |
+| Grafana                              | <http://localhost:3000>      |
+
+Email delivery is routed via `NOTIFICATION_DRIVER` in `.env`:
+
+```dotenv
+NOTIFICATION_DRIVER=http        # production default — uses notification-service
+NOTIFICATION_DRIVER=in_process  # instant rollback, no redeploy needed
+```
 
 ### ELK log aggregation (optional)
 
@@ -96,7 +105,9 @@ Four independent GitHub Actions workflows — each reports a separate status che
 
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
-| `ci.yml` | Every push / PR | PHPStan level 9 + PHPCS → Docker build & Trivy scan |
+| `ci.yml` | Every push / PR | PHPStan level 9 + PHPCS → notification-service lint/test/build → Docker build & Trivy scan |
 | `unit.yml` | Every push / PR | PHPUnit unit tests (~30 s, no Docker) |
 | `integration.yml` | Every push / PR | API integration tests against real MySQL + Redis |
 | `e2e.yml` | Push / PR to `main` | Playwright browser tests |
+
+`ci.yml` runs three jobs in parallel after the `lint` gate: `validate-configs`, `notification-service` (PHPStan level 9 + PHPUnit + Docker build for the notification service), and `build` (monolith image + Trivy scan).

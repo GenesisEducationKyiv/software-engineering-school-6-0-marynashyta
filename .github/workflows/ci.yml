@@ -54,7 +54,48 @@ jobs:
             prom/prometheus:v2.54.1 \
             check config /prometheus.yml
 
-  # ── Job 3: Docker build + image scan ───────────────────────────────────────
+  # ── Job 3: Notification service — lint, test, Docker build ────────────────
+  notification-service:
+    name: Notification Service
+    runs-on: ubuntu-latest
+    needs: [lint]
+    defaults:
+      run:
+        working-directory: notification-service
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          coverage: none
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: notification-service/vendor
+          key: ${{ runner.os }}-ns-composer-${{ hashFiles('notification-service/composer.lock') }}
+          restore-keys: ${{ runner.os }}-ns-composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Run PHPStan (level 9)
+        run: php vendor/bin/phpstan analyse --no-progress
+
+      - name: Run unit tests
+        run: php vendor/bin/phpunit --colors=always
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: notification-service
+          push: false
+          load: true
+          tags: notification-service:${{ github.sha }}
+
+  # ── Job 4: Docker build + image scan ───────────────────────────────────────
   # Only runs when lint passes.
   build:
     name: Docker Build & Scan

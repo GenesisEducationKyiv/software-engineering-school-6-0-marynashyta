@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use App\Cache\RedisCache;
-use App\Cache\RedisClientInterface;
+use App\SharedKernel\Infrastructure\Cache\RedisCache;
+use App\SharedKernel\Infrastructure\Cache\RedisClientInterface;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -39,21 +39,21 @@ final class RedisCacheTest extends TestCase
     public function setDoesNothingWhenClientIsNull(): void
     {
         (new RedisCache(null))->set('key', 'value', 60);
-        $this->assertTrue(true);
+        $this->addToAssertionCount(1);
     }
 
     #[Test]
     public function incrementDoesNothingWhenClientIsNull(): void
     {
         (new RedisCache(null))->increment('counter');
-        $this->assertTrue(true);
+        $this->addToAssertionCount(1);
     }
 
     #[Test]
     public function hashIncrementDoesNothingWhenClientIsNull(): void
     {
         (new RedisCache(null))->hashIncrement('myhash', 'field');
-        $this->assertTrue(true);
+        $this->addToAssertionCount(1);
     }
 
     #[Test]
@@ -85,7 +85,10 @@ final class RedisCacheTest extends TestCase
     #[Test]
     public function isConnectedReturnsTrueAfterSuccessfulPing(): void
     {
-        [$cache] = $this->makeConnectedCache();
+        /** @var RedisClientInterface&MockObject $redis */
+        $redis = $this->createMock(RedisClientInterface::class);
+        $redis->expects($this->exactly(2))->method('ping');
+        $cache = new RedisCache($redis);
         $this->assertTrue($cache->isConnected());
     }
 
@@ -117,7 +120,7 @@ final class RedisCacheTest extends TestCase
         $redis->expects($this->once())->method('setex')->with('mykey', 300, 'myvalue');
 
         $cache->set('mykey', 'myvalue', 300);
-        $this->assertTrue(true);
+        $this->addToAssertionCount(1);
     }
 
     #[Test]
@@ -128,7 +131,7 @@ final class RedisCacheTest extends TestCase
         $redis->expects($this->once())->method('setex')->with('mykey', 600, 'val');
 
         $cache->set('mykey', 'val');
-        $this->assertTrue(true);
+        $this->addToAssertionCount(1);
     }
 
     #[Test]
@@ -139,7 +142,7 @@ final class RedisCacheTest extends TestCase
         $redis->expects($this->once())->method('incr')->with('mycounter');
 
         $cache->increment('mycounter');
-        $this->assertTrue(true);
+        $this->addToAssertionCount(1);
     }
 
     #[Test]
@@ -150,7 +153,7 @@ final class RedisCacheTest extends TestCase
         $redis->expects($this->once())->method('hincrby')->with('myhash', 'field', 1);
 
         $cache->hashIncrement('myhash', 'field');
-        $this->assertTrue(true);
+        $this->addToAssertionCount(1);
     }
 
     #[Test]
@@ -185,6 +188,37 @@ final class RedisCacheTest extends TestCase
     }
 
     #[Test]
+    public function hashIncrementFloatDoesNothingWhenClientIsNull(): void
+    {
+        (new RedisCache(null))->hashIncrementFloat('myhash', 'field', 0.123);
+        $this->addToAssertionCount(1);
+    }
+
+    #[Test]
+    public function hashIncrementFloatCallsHincrbyFloat(): void
+    {
+        [$cache, $redis] = $this->makeConnectedCache();
+
+        $redis->expects($this->once())->method('hincrbyfloat')->with('myhash', 'field', 0.123);
+
+        $cache->hashIncrementFloat('myhash', 'field', 0.123);
+        $this->addToAssertionCount(1);
+    }
+
+    #[Test]
+    public function hashIncrementFloatSilentlyIgnoresRedisException(): void
+    {
+        [$cache, $redis] = $this->makeConnectedCache();
+
+        $redis->expects($this->once())
+            ->method('hincrbyfloat')
+            ->willThrowException(new \RuntimeException('connection lost'));
+
+        $cache->hashIncrementFloat('myhash', 'field', 0.5);
+        $this->addToAssertionCount(1);
+    }
+
+    #[Test]
     public function getReturnsNullOnRedisException(): void
     {
         [$cache, $redis] = $this->makeConnectedCache();
@@ -205,7 +239,7 @@ final class RedisCacheTest extends TestCase
             ->method('incr')
             ->willThrowException(new \RuntimeException('connection lost'));
 
-        $cache->increment('counter'); // must not throw
-        $this->assertTrue(true);
+        $cache->increment('counter');
+        $this->addToAssertionCount(1);
     }
 }

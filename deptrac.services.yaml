@@ -1,0 +1,67 @@
+# Root-level Deptrac configuration — SERVICE boundaries (monorepo only).
+#
+# Complements each service's own deptrac.yaml, which enforces layers INSIDE a service.
+# This file enforces the boundary BETWEEN services: no service may import another
+# service's code directly. There is no shared contracts package yet (see architecture.php
+# — `'shared' => null`), so each service's PSR-4 root is fully isolated: `App\.*` is the
+# monolith (still hosting the Subscription/GitHub/Observability domains plus the dead
+# Scanner/Notification modules kept for rollback), `ScannerService\.*` and
+# `NotificationService\.*` are the extracted, standalone services.
+#
+# Run from the repo root:
+#   vendor/bin/deptrac analyse --config-file=deptrac.services.yaml --fail-on-uncovered
+
+deptrac:
+  paths:
+    - ./src
+    - ./scanner-service/src
+    - ./notification-service/src
+
+  layers:
+    - name: API
+      collectors:
+        - type: classLike
+          value: ^App\\.*
+
+    - name: Scanner Service
+      collectors:
+        - type: classLike
+          value: ^ScannerService\\.*
+
+    - name: Notification Service
+      collectors:
+        - type: classLike
+          value: ^NotificationService\\.*
+
+    # Third-party libraries all three services depend on directly (HTTP client, AMQP,
+    # mailer, cache, PSR interfaces). Modelled as one layer purely so --fail-on-uncovered
+    # doesn't flag them; this file only cares about service-to-service edges, not vendor
+    # dependencies (those are each service's own concern via its deptrac.yaml).
+    - name: Vendor
+      collectors:
+        - type: classLike
+          value: ^GuzzleHttp\\.*
+        - type: classLike
+          value: ^PhpAmqpLib\\.*
+        - type: classLike
+          value: ^PHPMailer\\PHPMailer\\.*
+        - type: classLike
+          value: ^Predis\\.*
+        - type: classLike
+          value: ^Psr\\Http\\.*
+        - type: classLike
+          value: ^Psr\\Log\\.*
+        - type: classLike
+          value: ^Slim\\Psr7\\.*
+
+  ruleset:
+    # No shared contracts package exists yet, so no service may depend on another
+    # service's code directly. Cross-service communication must go through HTTP/events
+    # (see docs/LANDSCAPE.md) — never a `use` statement into another service's namespace.
+    API:
+      - Vendor
+    Scanner Service:
+      - Vendor
+    Notification Service:
+      - Vendor
+    Vendor: ~

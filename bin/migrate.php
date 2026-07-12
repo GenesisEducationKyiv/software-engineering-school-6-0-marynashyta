@@ -3,12 +3,11 @@
 
 declare(strict_types=1);
 
-use App\Database\Connection;
-use App\Database\Migrator;
+use App\SharedKernel\Infrastructure\Database\Connection;
+use App\SharedKernel\Infrastructure\Database\Migrator;
 
 require __DIR__ . '/../vendor/autoload.php';
 
-// Load environment variables
 $dotenv = Dotenv\Dotenv::createImmutable(dirname(__DIR__));
 $dotenv->safeLoad();
 

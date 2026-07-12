@@ -1,6 +1,6 @@
 # Release Notification API
 
-A monolithic PHP service that lets users subscribe to GitHub repository release notifications via email.
+A PHP service that lets users subscribe to GitHub repository release notifications via email. Email delivery runs in a standalone `notification-service` container extracted via the Strangler Fig pattern (see [ADR-003](docs/adr/0003-extract-notification-as-microservice.md)).
 
 ## How it works
 
@@ -21,20 +21,49 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The API is available at `http://localhost:8080`.  
-The Mailpit email UI is at `http://localhost:8025`.
+| Service                              | URL                          |
+| ------------------------------------ | ---------------------------- |
+| API                                  | <http://localhost:8080>      |
+| Notification service                 | <http://localhost:8081>      |
+| Swagger UI (monolith)                | <http://localhost:8090>      |
+| Swagger UI (notification service)    | <http://localhost:8091>      |
+| Mailpit (email preview)              | <http://localhost:8025>      |
+| Prometheus                           | <http://localhost:9090>      |
+| Grafana                              | <http://localhost:3000>      |
+
+Email delivery is routed via `NOTIFICATION_DRIVER` in `.env`:
+
+```dotenv
+NOTIFICATION_DRIVER=http        # production default — uses notification-service
+NOTIFICATION_DRIVER=in_process  # instant rollback, no redeploy needed
+```
+
+### ELK log aggregation (optional)
+
+Start the ELK stack on top of the base stack:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.elk.yml up -d
+```
+
+| Service       | URL                     |
+| ------------- | ----------------------- |
+| Kibana        | <http://localhost:5601> |
+| Elasticsearch | <http://localhost:9200> |
+
+Filebeat ships logs from both the `api` and `scanner` containers into Elasticsearch under the index pattern `release-api-logs-*`. If the Kibana data view is missing after first start: **Stack Management → Data Views → Create data view** → index pattern `release-api-logs-*`, time field `@timestamp`.
 
 ## API reference
 
 See [swagger.yaml](swagger.yaml) for the full contract. Quick summary:
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/subscribe` | Subscribe an email to a repository |
-| `GET` | `/api/confirm/{token}` | Confirm a pending subscription |
-| `GET` | `/api/unsubscribe/{token}` | Unsubscribe |
-| `GET` | `/api/subscriptions?email=` | List confirmed subscriptions for an email |
-| `GET` | `/metrics` | Prometheus metrics (always public) |
+| Method   | Path                        | Description                               |
+| -------- | --------------------------- | ----------------------------------------- |
+| `POST`   | `/api/subscribe`            | Subscribe an email to a repository        |
+| `GET`    | `/api/confirm/{token}`      | Confirm a pending subscription            |
+| `GET`    | `/api/unsubscribe/{token}`  | Unsubscribe                               |
+| `GET`    | `/api/subscriptions?email=` | List confirmed subscriptions for an email |
+| `GET`    | `/metrics`                  | Prometheus metrics (always public)        |
 
 ### Subscribe
 
@@ -58,21 +87,27 @@ Without a `GITHUB_TOKEN` the limit is 60 requests/hour. With a token it is 5 000
 
 ## Running tests
 
-```bash
-docker compose run --rm api php vendor/bin/phpunit
-```
-
-Or locally if PHP 8.2+ and Composer are installed:
+Three test suites with increasing scope:
 
 ```bash
-composer install
-php vendor/bin/phpunit
+composer test          # unit tests — fast, no Docker
+make test-integration  # integration tests — starts Docker stack automatically
+make test-e2e          # E2E browser tests — starts Docker stack + Playwright (PHP)
+make test              # all three suites in one go
 ```
+
+Integration and E2E tests use `docker-compose.test.yml` as the stack.
+See [docs/testing.md](docs/testing.md) for full setup instructions and coverage details.
 
 ## CI
 
-GitHub Actions runs on every push:
+Four independent GitHub Actions workflows — each reports a separate status check:
 
-1. **Lint** — PHPStan level 9 static analysis
-2. **Test** — PHPUnit test suite
-3. **Build** — Docker image build + Trivy vulnerability scan (runs only when lint and tests pass)
+| Workflow | Trigger | What it does |
+| --- | --- | --- |
+| `ci.yml` | Every push / PR | PHPStan level 9 + PHPCS → notification-service lint/test/build → Docker build & Trivy scan |
+| `unit.yml` | Every push / PR | PHPUnit unit tests (~30 s, no Docker) |
+| `integration.yml` | Every push / PR | API integration tests against real MySQL + Redis |
+| `e2e.yml` | Push / PR to `main` | Playwright browser tests |
+
+`ci.yml` runs three jobs in parallel after the `lint` gate: `validate-configs`, `notification-service` (PHPStan level 9 + PHPUnit + Docker build for the notification service), and `build` (monolith image + Trivy scan).

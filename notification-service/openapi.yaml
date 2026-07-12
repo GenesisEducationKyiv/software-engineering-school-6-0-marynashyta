@@ -1,0 +1,91 @@
+openapi: 3.1.0
+info:
+  title: Notification Service
+  description: Sends confirmation and release-notification emails on behalf of the Release Notification API.
+  version: 1.0.0
+
+paths:
+  /send-confirmation:
+    post:
+      summary: Send subscription confirmation email
+      operationId: sendConfirmation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, repo, confirm_token, unsubscribe_token]
+              properties:
+                email:             { type: string, format: email, example: user@example.com }
+                repo:              { type: string, example: "owner/repo" }
+                confirm_token:     { type: string, pattern: "^[0-9a-f]{64}$" }
+                unsubscribe_token: { type: string, pattern: "^[0-9a-f]{64}$" }
+      responses:
+        '204':
+          description: Email accepted and sent
+        '400':
+          description: Missing or malformed request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: SMTP delivery failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /send-notification:
+    post:
+      summary: Send release notification email
+      operationId: sendNotification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, repo, tag, unsubscribe_token]
+              properties:
+                email:             { type: string, format: email, example: user@example.com }
+                repo:              { type: string, example: "owner/repo" }
+                tag:               { type: string, example: "v1.2.3" }
+                unsubscribe_token: { type: string, pattern: "^[0-9a-f]{64}$" }
+      responses:
+        '204':
+          description: Email accepted and sent
+        '400':
+          description: Missing or malformed request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: SMTP delivery failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /health:
+    get:
+      summary: Health check
+      operationId: health
+      responses:
+        '200':
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        message: { type: string }

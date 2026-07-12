@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use App\Exceptions\InvalidRepositoryFormatException;
-use App\Exceptions\RateLimitException;
-use App\Exceptions\RepositoryNotFoundException;
-use App\Services\GitHubService;
+use App\Modules\GitHub\Domain\Exception\InvalidRepositoryFormatException;
+use App\Modules\GitHub\Domain\Exception\RateLimitException;
+use App\Modules\GitHub\Domain\Exception\RepositoryNotFoundException;
+use App\Modules\GitHub\Infrastructure\GitHubService;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Psr7\Request;

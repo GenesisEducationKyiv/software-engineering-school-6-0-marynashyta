@@ -1,4 +1,64 @@
 services:
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    ports:
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  notification:
+    build: ./notification-service
+    env_file: .env
+    environment:
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      MAIL_FROM_ADDRESS: noreply@releases-api.app
+      MAIL_FROM_NAME: "Release Notifications"
+      APP_URL: http://localhost:8080
+    depends_on:
+      mailpit:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-so", "/dev/null", "http://localhost/health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    restart: unless-stopped
+
+  notification-consumer:
+    build: ./notification-service
+    command: ["php", "/var/www/html/bin/consumer.php"]
+    env_file: .env
+    environment:
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      MAIL_FROM_ADDRESS: noreply@releases-api.app
+      MAIL_FROM_NAME: "Release Notifications"
+      APP_URL: http://localhost:8080
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f consumer.php > /dev/null"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    restart: unless-stopped
+
   api:
     build: .
     ports:
@@ -15,10 +75,17 @@ services:
       APP_URL: http://localhost:8080
       MAIL_FROM_ADDRESS: noreply@releases-api.app
       MAIL_FROM_NAME: "Release Notifications"
+      NOTIFICATION_SERVICE_URL: http://notification:80
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
     depends_on:
       db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      notification:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-so", "/dev/null", "http://localhost/"]
@@ -29,26 +96,24 @@ services:
     restart: unless-stopped
 
   scanner:
-    build: .
-    command: ["php", "/var/www/html/bin/scanner.php"]
+    build: ./scanner-service
     env_file: .env
     environment:
-      DB_HOST: db
-      DB_PORT: 3306
-      MAIL_HOST: mailpit
-      MAIL_PORT: 1025
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_DB: 0
-      APP_URL: http://localhost:8080
+      API_BASE_URL: http://api:80
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
       SCANNER_INTERVAL: 300
-      MAIL_FROM_ADDRESS: noreply@releases-api.app
-      MAIL_FROM_NAME: "Release Notifications"
     depends_on:
-      db:
+      api:
         condition: service_healthy
-      redis:
+      rabbitmq:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f scanner.php > /dev/null"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
     restart: unless-stopped
 
   db:
@@ -95,5 +160,50 @@ services:
       - ./swagger.yaml:/spec/swagger.yaml:ro
     restart: unless-stopped
 
+  swagger-notification:
+    image: swaggerapi/swagger-ui
+    ports:
+      - "8091:8080"
+    environment:
+      SWAGGER_JSON: /spec/openapi.yaml
+    volumes:
+      - ./notification-service/openapi.yaml:/spec/openapi.yaml:ro
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
 volumes:
   db_data:
+  prometheus_data:
+  grafana_data:

@@ -1,0 +1,32 @@
+filebeat.inputs:
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/app/*.log
+    ignore_older: 48h
+    json.keys_under_root: true
+    json.message_key: message
+    json.add_error_key: true
+
+processors:
+  - add_host_metadata: {}
+  - timestamp:
+      field: datetime
+      layouts:
+        - '2006-01-02T15:04:05Z07:00'
+      ignore_missing: true
+
+output.elasticsearch:
+  hosts: ["${ELASTICSEARCH_HOST:elasticsearch}:${ELASTICSEARCH_PORT:9200}"]
+  index: "release-api-logs-%{+yyyy.MM.dd}"
+
+setup.template.name: "release-api-logs"
+setup.template.pattern: "release-api-logs-*"
+setup.ilm.enabled: false
+
+setup.kibana:
+  host: "${KIBANA_HOST:kibana}:5601"
+
+setup.dashboards.enabled: false
+
+logging.level: warning

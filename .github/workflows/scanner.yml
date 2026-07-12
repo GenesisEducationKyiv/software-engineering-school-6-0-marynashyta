@@ -1,0 +1,92 @@
+name: Scanner Service CI
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "scanner-service/**"
+      - ".github/workflows/scanner.yml"
+  pull_request:
+    branches: ["**"]
+    paths:
+      - "scanner-service/**"
+      - ".github/workflows/scanner.yml"
+
+jobs:
+  unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: scanner-service
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: zip, sockets, pcntl
+          coverage: none
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: scanner-service/vendor
+          key: ${{ runner.os }}-scanner-composer-${{ hashFiles('scanner-service/composer.lock') }}
+          restore-keys: ${{ runner.os }}-scanner-composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Run unit tests
+        run: vendor/bin/phpunit --colors=always
+
+  analyse:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: scanner-service
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: zip, sockets, pcntl
+          coverage: none
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: scanner-service/vendor
+          key: ${{ runner.os }}-scanner-composer-${{ hashFiles('scanner-service/composer.lock') }}
+          restore-keys: ${{ runner.os }}-scanner-composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Run PHPStan
+        run: vendor/bin/phpstan analyse --no-progress
+
+      - name: Deptrac — layer boundaries
+        run: vendor/bin/deptrac analyse --no-progress --fail-on-uncovered
+
+      - name: PHPArkitect — fine-grained rules
+        run: vendor/bin/phparkitect check
+
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build scanner-service image
+        run: docker build -t scanner-service:ci ./scanner-service

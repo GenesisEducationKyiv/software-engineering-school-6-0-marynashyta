@@ -1,0 +1,80 @@
+# Deptrac configuration — enforces the Dependency Rule (see docs/architecture/ARCHITECTURE.md
+# section 5 and ADR-0001). Layers are matched on the exact FQCN rather than on top-level
+# folders, because this service is organised feature-first (GitHub/, Notification/,
+# Subscription/), each with a port interface and one adapter sharing the same namespace.
+# Run: vendor/bin/deptrac analyse --fail-on-uncovered
+
+deptrac:
+  paths:
+    - ./src
+
+  layers:
+    # Value objects and domain exceptions — no outward dependencies.
+    - name: Domain
+      collectors:
+        - type: classLike
+          value: ^ScannerService\\GitHub\\GitHubRelease$
+        - type: classLike
+          value: ^ScannerService\\GitHub\\Exception\\.*
+        - type: classLike
+          value: ^ScannerService\\Subscription\\Subscription$
+
+    # Ports (naming convention: *Interface) plus the single use case that depends on them.
+    # Anchored to ScannerService so third-party interfaces (Psr\Log\LoggerInterface,
+    # GuzzleHttp\ClientInterface, ...) don't silently join this layer.
+    - name: Application
+      collectors:
+        - type: classLike
+          value: ^ScannerService\\.*Interface$
+        - type: classLike
+          value: ^ScannerService\\Scanner\\ReleaseScanner$
+
+    # Concrete adapters, the resilience helper, typed settings, and the third-party
+    # transport libraries they wrap (Guzzle for HTTP, php-amqplib for AMQP) — vendor code
+    # a service's Infrastructure is expected to depend on directly.
+    - name: Infrastructure
+      collectors:
+        - type: classLike
+          value: ^ScannerService\\GitHub\\GitHubService$
+        - type: classLike
+          value: ^ScannerService\\Subscription\\HttpSubscriptionScanClient$
+        - type: classLike
+          value: ^ScannerService\\Notification\\AmqpNotificationPublisher$
+        - type: classLike
+          value: ^ScannerService\\Infrastructure\\.*
+        - type: classLike
+          value: ^ScannerService\\Config\\AmqpConfig$
+        - type: classLike
+          value: ^ScannerService\\Config\\ApiConfig$
+        - type: classLike
+          value: ^GuzzleHttp\\.*
+        - type: classLike
+          value: ^PhpAmqpLib\\.*
+
+    # Tiny cross-cutting kernel — the typed env reader plus the PSR logging contract every
+    # layer is allowed to log through.
+    - name: Shared
+      collectors:
+        - type: classLike
+          value: ^ScannerService\\Config\\Env$
+        - type: classLike
+          value: ^Psr\\Log\\.*
+
+  ruleset:
+    # The core: business rules depend on nothing but the shared kernel.
+    Domain:
+      - Shared
+
+    # The use case orchestrates via ports; no adapters, no delivery.
+    Application:
+      - Domain
+      - Shared
+
+    # Adapters implement inward-facing interfaces.
+    Infrastructure:
+      - Application
+      - Domain
+      - Shared
+
+    # The kernel depends on nothing internal.
+    Shared: ~

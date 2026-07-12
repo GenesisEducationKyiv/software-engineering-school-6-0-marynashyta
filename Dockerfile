@@ -10,20 +10,30 @@ COPY composer.json composer.lock ./
 
 RUN composer install \
     --no-interaction \
+    --no-dev \
     --no-scripts \
     --prefer-dist \
-    --optimize-autoloader
+    --optimize-autoloader \
+    --ignore-platform-req=ext-sockets
 
 # ── Stage 2: Runtime image ─────────────────────────────────────────────────────
 FROM php:8.2-apache AS runtime
 
+ARG MPM_RESET=v4
+
 # Install only the extensions the application actually needs.
 # --no-install-recommends keeps the layer lean.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libzip-dev \
-    curl \
-    && docker-php-ext-install pdo_mysql zip \
-    && a2enmod rewrite \
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && apt-get install -y --no-install-recommends libzip-dev libzip5 curl \
+    && docker-php-ext-install pdo_mysql zip sockets \
+    && apt-get purge -y libzip-dev linux-libc-dev \
+    && apt-get autoremove -y \
+    && find /etc/apache2/mods-enabled/ -name 'mpm_*.load' -delete \
+    && find /etc/apache2/mods-enabled/ -name 'mpm_*.conf' -delete \
+    && ln -sf /etc/apache2/mods-available/mpm_prefork.load /etc/apache2/mods-enabled/mpm_prefork.load \
+    && ln -sf /etc/apache2/mods-available/mpm_prefork.conf /etc/apache2/mods-enabled/mpm_prefork.conf \
+    && a2enmod rewrite headers \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /var/www/html
@@ -38,7 +48,8 @@ COPY . .
 RUN sed -i 's|DocumentRoot /var/www/html|DocumentRoot /var/www/html/public|g' \
         /etc/apache2/sites-available/000-default.conf \
     && printf '<Directory /var/www/html/public>\n    AllowOverride All\n    Require all granted\n</Directory>\n' \
-        >> /etc/apache2/sites-available/000-default.conf
+        >> /etc/apache2/sites-available/000-default.conf \
+    && echo "ServerName localhost" >> /etc/apache2/apache2.conf
 
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

@@ -35,7 +35,11 @@ final class AmqpConfirmationMailer implements ConfirmationMailerInterface
 
             $this->publisher->publish($body);
         } catch (JsonException | AMQPExceptionInterface $e) {
-            throw new NotificationDeliveryException('Failed to publish confirmation message: ' . $e->getMessage(), 0, $e);
+            throw new NotificationDeliveryException(
+                'Failed to publish confirmation message: ' . $e->getMessage(),
+                0,
+                $e,
+            );
         }
     }
 }

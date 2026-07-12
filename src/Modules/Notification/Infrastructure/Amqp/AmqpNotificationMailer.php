@@ -35,7 +35,11 @@ final class AmqpNotificationMailer implements NotificationMailerInterface
 
             $this->publisher->publish($body);
         } catch (JsonException | AMQPExceptionInterface $e) {
-            throw new NotificationDeliveryException('Failed to publish release notification message: ' . $e->getMessage(), 0, $e);
+            throw new NotificationDeliveryException(
+                'Failed to publish release notification message: ' . $e->getMessage(),
+                0,
+                $e,
+            );
         }
     }
 }

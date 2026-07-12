@@ -7,11 +7,11 @@ namespace App\Modules\Subscription\Application\Saga;
 use App\Modules\Notification\Application\ConfirmationMailerInterface;
 use App\Modules\Subscription\Application\SubscribeRequest;
 use App\Modules\Subscription\Application\TokenGeneratorInterface;
+use App\Modules\Subscription\Application\TransactionManagerInterface;
 use App\Modules\Subscription\Domain\Exception\SagaCompensatedException;
 use App\Modules\Subscription\Domain\Saga\SagaRepositoryInterface;
 use App\Modules\Subscription\Domain\Saga\SubscribeSaga;
 use App\Modules\Subscription\Domain\SubscriptionRepositoryInterface;
-use App\SharedKernel\Infrastructure\Database\TransactionManagerInterface;
 
 final class SubscribeSagaOrchestrator implements SubscribeSagaOrchestratorInterface
 {

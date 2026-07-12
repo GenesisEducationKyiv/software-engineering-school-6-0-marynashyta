@@ -88,19 +88,55 @@ deptrac:
         - type: classLike
           value: ^Slim\\Psr7\\.*
 
-    # Cross-cutting kernel with no domain logic (see domain-map.md § 8): the transaction
-    # manager, the in-process event bus, cache/env/json helpers. Every layer may depend on it.
+    # Cross-cutting kernel with no domain logic (see domain-map.md § 8): ports (cache,
+    # event dispatcher) plus dependency-free env/json helpers. No third-party client lives
+    # here — Domain and Application may depend on this freely, since it never drags in a
+    # concrete cache/db/queue library. The transaction manager port isn't here: only
+    # Subscription needs it, so it's declared as that module's own Application-owned
+    # contract (App\Modules\Subscription\Application\TransactionManagerInterface) instead of
+    # a kernel-wide one — a consumer-owned port, not infrastructure dictating the interface.
     - name: Shared
       collectors:
         - type: classLike
-          value: ^App\\SharedKernel\\.*
+          value: ^App\\SharedKernel\\Domain\\.*
+        - type: classLike
+          value: ^App\\SharedKernel\\Infrastructure\\Cache\\CacheInterface$
+        - type: classLike
+          value: ^App\\SharedKernel\\Infrastructure\\Cache\\NullCache$
+        - type: classLike
+          value: ^App\\SharedKernel\\Infrastructure\\Event\\EventDispatcherInterface$
+        - type: classLike
+          value: ^App\\SharedKernel\\Infrastructure\\Env$
+        - type: classLike
+          value: ^App\\SharedKernel\\Infrastructure\\Json$
         - type: classLike
           value: ^Psr\\Log\\.*
+
+    # The kernel's own adapters: the Predis-backed cache, the PDO connection/migrator, the
+    # in-process event dispatcher — plus the third-party clients they wrap. Implementation
+    # detail, not a port, so only the layers that wire up adapters (Infrastructure,
+    # Presentation's composition-adjacent code) may see it; Domain and Application depend on
+    # the Shared interfaces above instead.
+    - name: SharedInfrastructure
+      collectors:
+        - type: classLike
+          value: ^App\\SharedKernel\\Infrastructure\\Cache\\PredisAdapter$
+        - type: classLike
+          value: ^App\\SharedKernel\\Infrastructure\\Cache\\RedisCache$
+        - type: classLike
+          value: ^App\\SharedKernel\\Infrastructure\\Cache\\RedisClientInterface$
+        - type: classLike
+          value: ^App\\SharedKernel\\Infrastructure\\Database\\Connection$
+        - type: classLike
+          value: ^App\\SharedKernel\\Infrastructure\\Database\\Migrator$
+        - type: classLike
+          value: ^App\\SharedKernel\\Infrastructure\\Event\\SimpleEventDispatcher$
         - type: classLike
           value: ^Predis\\.*
 
   ruleset:
-    # The core: business rules depend on nothing but the shared kernel.
+    # The core: business rules depend on nothing but the shared kernel's ports/helpers —
+    # never a concrete cache/db/queue client.
     Domain:
       - Shared
 
@@ -109,17 +145,25 @@ deptrac:
       - Domain
       - Shared
 
-    # Adapters implement inward-facing ports.
+    # Adapters implement inward-facing ports, so they're the ones allowed to reach for the
+    # concrete SharedInfrastructure clients (Predis, PDO, ...).
     Infrastructure:
       - Application
       - Domain
       - Shared
+      - SharedInfrastructure
 
     # Delivery triggers the use case / port and reads domain value objects.
     Presentation:
       - Application
       - Domain
       - Shared
+      - SharedInfrastructure
 
     # The kernel depends on nothing internal.
     Shared: ~
+
+    # The kernel's adapters may use the kernel's own ports (e.g. PdoTransactionManager
+    # implementing TransactionManagerInterface) but nothing else internal.
+    SharedInfrastructure:
+      - Shared

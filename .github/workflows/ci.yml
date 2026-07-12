@@ -105,6 +105,12 @@ jobs:
       - name: Run PHPStan (level 9)
         run: php vendor/bin/phpstan analyse --no-progress
 
+      - name: Deptrac — layer boundaries
+        run: vendor/bin/deptrac analyse --no-progress --fail-on-uncovered
+
+      - name: PHPArkitect — fine-grained rules
+        run: vendor/bin/phparkitect check
+
       - name: Run unit tests
         run: php vendor/bin/phpunit --colors=always
 

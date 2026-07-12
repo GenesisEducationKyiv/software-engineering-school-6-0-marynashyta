@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\SharedKernel\Infrastructure\Database;
+namespace App\Modules\Subscription\Application;
 
 interface TransactionManagerInterface
 {

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use App\SharedKernel\Infrastructure\Database\PdoTransactionManager;
+use App\Modules\Subscription\Infrastructure\Persistence\PdoTransactionManager;
 use PDO;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;

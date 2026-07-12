@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\SharedKernel\Infrastructure\Database;
+namespace App\Modules\Subscription\Infrastructure\Persistence;
 
+use App\Modules\Subscription\Application\TransactionManagerInterface;
 use PDO;
+use Throwable;
 
 final class PdoTransactionManager implements TransactionManagerInterface
 {
@@ -21,7 +23,7 @@ final class PdoTransactionManager implements TransactionManagerInterface
             $this->db->commit();
 
             return $result;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->db->rollBack();
 
             throw $e;

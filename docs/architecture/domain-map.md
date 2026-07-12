@@ -173,7 +173,7 @@ The core domain. Owns the full subscription lifecycle: create, confirm, unsubscr
 
 | | |
 |---|---|
-| **Owns** | `subscriptions` table, `subscription_sagas` table, `SubscriptionRepository`, `SagaRepository`, `SubscriptionService`, `SubscribeSagaOrchestrator`, `SubscriptionController`, `TokenGenerator`, `SubscribeRequest` DTO, `Subscription` entity, `SubscribeSaga` / `SagaState` |
+| **Owns** | `subscriptions` table, `subscription_sagas` table, `SubscriptionRepository`, `SagaRepository`, `SubscriptionService`, `SubscribeSagaOrchestrator`, `SubscriptionController`, `TokenGenerator`, `TransactionManagerInterface` / `PdoTransactionManager`, `SubscribeRequest` DTO, `Subscription` entity, `SubscribeSaga` / `SagaState` |
 | **Reads** | GitHub API (via `GitHubServiceInterface`) — validates repo on subscribe, snapshots latest tag on confirm |
 | **Writes** | Subscribe is a **saga**, not a single transaction: create the subscription row, then dispatch the confirmation email (via `ConfirmationMailerInterface`); a mailer failure compensates by deleting the row inside a DB transaction (`TransactionManagerInterface`) rather than leaving an unconfirmable orphan |
 | **Emits** | (no event bus on the notification path) — calls `ConfirmationMailerInterface` directly from the saga |
@@ -273,7 +273,7 @@ Technical plumbing shared by all monolith modules. Contains no business logic.
 | Namespace | Purpose |
 |---|---|
 | `SharedKernel/Infrastructure/Cache/` | `CacheInterface` + Redis implementation (`RedisCache`, `PredisAdapter`) + null stubs |
-| `SharedKernel/Infrastructure/Database/` | `Connection` (PDO singleton factory), `Migrator`, `TransactionManagerInterface` / `PdoTransactionManager` (wraps `beginTransaction`/`commit`/`rollBack` for the saga's compensating step) |
+| `SharedKernel/Infrastructure/Database/` | `Connection` (PDO singleton factory), `Migrator` |
 | `SharedKernel/Infrastructure/Event/` | `EventDispatcherInterface` / `SimpleEventDispatcher` — the in-process event bus `GitHubApiCallRecorded` travels over |
 | `SharedKernel/Infrastructure/` | `Env` (typed env-var reader), `Json` (encode/decode with exceptions) |
 | `SharedKernel/Domain/` | `HttpExceptionInterface`, `DomainEvent` |

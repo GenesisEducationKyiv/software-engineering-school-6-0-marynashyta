@@ -6,8 +6,12 @@ use Monolog\Formatter\JsonFormatter;
 use Monolog\Handler\StreamHandler;
 use Monolog\Level;
 use Monolog\Logger;
+use NotificationService\Config\AmqpConfig;
 use NotificationService\Config\Env;
 use NotificationService\Config\SmtpConfig;
+use NotificationService\Consumer\MessageHandler;
+use NotificationService\Consumer\MessageProcessor;
+use NotificationService\Consumer\NotificationConsumer;
 use NotificationService\Health\HealthController;
 use NotificationService\Mailer;
 use NotificationService\MailerInterface;
@@ -55,6 +59,19 @@ return [
         return new Mailer(smtp: $smtp, appUrl: Env::string('APP_URL', 'http://localhost:8080'));
     },
     MailerInterface::class => \DI\get(Mailer::class),
+
+    AmqpConfig::class => fn (): AmqpConfig => new AmqpConfig(
+        host:     Env::string('RABBITMQ_HOST', 'rabbitmq'),
+        port:     Env::int('RABBITMQ_PORT', 5672),
+        user:     Env::string('RABBITMQ_USER', 'guest'),
+        password: Env::string('RABBITMQ_PASSWORD', 'guest'),
+    ),
+
+    MessageHandler::class => \DI\autowire(),
+
+    MessageProcessor::class => \DI\autowire(),
+
+    NotificationConsumer::class => \DI\autowire(),
 
     HealthController::class => function (ContainerInterface $c): HealthController {
         /** @var SmtpConfig $smtp */

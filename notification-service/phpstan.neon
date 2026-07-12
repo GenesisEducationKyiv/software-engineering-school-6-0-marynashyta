@@ -4,5 +4,6 @@ parameters:
         - src
         - public
         - config
+        - bin
     excludePaths:
         - vendor

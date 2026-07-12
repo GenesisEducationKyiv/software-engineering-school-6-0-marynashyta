@@ -13,7 +13,8 @@ RUN composer install \
     --no-dev \
     --no-scripts \
     --prefer-dist \
-    --optimize-autoloader
+    --optimize-autoloader \
+    --ignore-platform-req=ext-sockets
 
 # ── Stage 2: Runtime image ─────────────────────────────────────────────────────
 FROM php:8.2-apache AS runtime
@@ -25,7 +26,7 @@ ARG MPM_RESET=v4
 RUN apt-get update \
     && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends libzip-dev libzip5 curl \
-    && docker-php-ext-install pdo_mysql zip \
+    && docker-php-ext-install pdo_mysql zip sockets \
     && apt-get purge -y libzip-dev linux-libc-dev \
     && apt-get autoremove -y \
     && find /etc/apache2/mods-enabled/ -name 'mpm_*.load' -delete \

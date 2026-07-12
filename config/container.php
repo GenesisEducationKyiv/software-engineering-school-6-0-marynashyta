@@ -11,6 +11,10 @@ use App\Modules\GitHub\Domain\GitHubServiceInterface;
 use App\Modules\Notification\Application\ConfirmationMailerInterface;
 use App\Modules\Notification\Application\NotificationMailerInterface;
 use App\Modules\Notification\Infrastructure\EmailService;
+use App\Modules\Notification\Infrastructure\Amqp\AmqpConfig;
+use App\Modules\Notification\Infrastructure\Amqp\AmqpConfirmationMailer;
+use App\Modules\Notification\Infrastructure\Amqp\AmqpNotificationMailer;
+use App\Modules\Notification\Infrastructure\Amqp\AmqpPublisher;
 use App\Modules\Notification\Infrastructure\Http\HttpConfirmationMailer;
 use App\Modules\Notification\Infrastructure\Http\HttpNotificationMailer;
 use App\Modules\Notification\Infrastructure\SmtpConfig;
@@ -109,6 +113,19 @@ return [
             releaseUrlBuilder: $urlBuilder,
         );
     },
+    AmqpConfig::class => fn (): AmqpConfig => new AmqpConfig(
+        host:     Env::string('RABBITMQ_HOST', 'rabbitmq'),
+        port:     Env::int('RABBITMQ_PORT', 5672),
+        user:     Env::string('RABBITMQ_USER', 'guest'),
+        password: Env::string('RABBITMQ_PASSWORD', 'guest'),
+    ),
+    AmqpPublisher::class => fn (ContainerInterface $c): AmqpPublisher =>
+        new AmqpPublisher($c->get(AmqpConfig::class)),
+    AmqpConfirmationMailer::class => fn (ContainerInterface $c): AmqpConfirmationMailer =>
+        new AmqpConfirmationMailer($c->get(AmqpPublisher::class)),
+    AmqpNotificationMailer::class => fn (ContainerInterface $c): AmqpNotificationMailer =>
+        new AmqpNotificationMailer($c->get(AmqpPublisher::class)),
+
     HttpConfirmationMailer::class => function (ContainerInterface $c): HttpConfirmationMailer {
         /** @var ClientInterface $http */
         $http = $c->get(ClientInterface::class);
@@ -121,14 +138,18 @@ return [
     },
 
     ConfirmationMailerInterface::class => function (ContainerInterface $c): ConfirmationMailerInterface {
-        return Env::string('NOTIFICATION_DRIVER') === 'http'
-            ? $c->get(HttpConfirmationMailer::class)
-            : $c->get(EmailService::class);
+        return match (Env::string('NOTIFICATION_DRIVER')) {
+            'http'  => $c->get(HttpConfirmationMailer::class),
+            'amqp'  => $c->get(AmqpConfirmationMailer::class),
+            default => $c->get(EmailService::class),
+        };
     },
     NotificationMailerInterface::class => function (ContainerInterface $c): NotificationMailerInterface {
-        return Env::string('NOTIFICATION_DRIVER') === 'http'
-            ? $c->get(HttpNotificationMailer::class)
-            : $c->get(EmailService::class);
+        return match (Env::string('NOTIFICATION_DRIVER')) {
+            'http'  => $c->get(HttpNotificationMailer::class),
+            'amqp'  => $c->get(AmqpNotificationMailer::class),
+            default => $c->get(EmailService::class),
+        };
     },
 
     ReleaseUrlBuilderInterface::class => \DI\get(GitHubReleaseUrlBuilder::class),
